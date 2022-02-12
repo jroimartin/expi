@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -eu
+
+export CARGO_BUILD_RUSTFLAGS="\
+	-Clink-arg=--nmagic \
+	-Clink-arg=--section-start=.entry=0x80000"
+export CARGO_BUILD_TARGET="aarch64-unknown-none"
+export CARGO_UNSTABLE_BUILD_STD="core"
+export CARGO_TARGET_AARCH64_UNKNOWN_NONE_RUNNER="scripts/qemu-run"
+
+exec cargo "$@"
