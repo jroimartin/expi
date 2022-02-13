@@ -1,0 +1,18 @@
+[alias]
+pedant = "clippy -- -W clippy::missing_docs_in_private_items"
+
+[build]
+target = "aarch64-unknown-none"
+
+[target.aarch64-unknown-none]
+rustflags = [
+	"-Ccode-model=large",
+	"-Crelocation-model=static",
+	"-Clink-arg=--image-base=0x80000",
+	"-Clink-arg=--section-start=.entry=0x80000",
+	"-Clink-arg=--nmagic",
+]
+runner = "./qemu-run"
+
+[unstable]
+build-std = ["core"]

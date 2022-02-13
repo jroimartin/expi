@@ -2,20 +2,24 @@
 
 set -eu
 
-if [ $# -ne 1 ]; then
-	echo "usage: qemu-run kernel" >&2
+if [ $# -lt 1 ]; then
+	echo "usage: qemu-run kernel [qemu_flags]" >&2
 	exit 2
 fi
 kernel=$1
+shift
 
-kernel_flat="$1.flat"
+kernel_flat="$kernel.flat"
 
 out=$(flatelf "${kernel}" "flatbin:${kernel_flat}")
 base_vaddr=$(echo "${out}" | cut -d ' ' -f 1)
 entry=$(echo "${out}" | cut -d ' ' -f 2)
+size=$(echo "${out}" | cut -d ' ' -f 3)
 
 echo "Base address: ${base_vaddr}"
 echo "Entry point: ${entry}"
+echo "Size: ${size}"
+echo '---'
 
 qemu-system-aarch64 \
 	-nodefaults \
@@ -23,4 +27,5 @@ qemu-system-aarch64 \
 	-cpu cortex-a53 \
 	-M raspi3b \
 	-serial mon:stdio \
-	-kernel "${kernel_flat}"
+	-kernel "${kernel_flat}" \
+	"$@"
