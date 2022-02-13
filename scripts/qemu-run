@@ -23,6 +23,4 @@ qemu-system-aarch64 \
 	-cpu cortex-a53 \
 	-M raspi3b \
 	-serial mon:stdio \
-	-kernel "${kernel_flat}" \
-	-s \
-	-S
+	-kernel "${kernel_flat}"
