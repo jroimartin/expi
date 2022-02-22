@@ -11,7 +11,7 @@ shift
 
 kernel_flat="$kernel.flat"
 
-out=$(flatelf "${kernel}" "flatbin:${kernel_flat}")
+out=$(flatelf "${kernel}" "${kernel_flat}")
 base_vaddr=$(echo "${out}" | cut -d ' ' -f 1)
 entry=$(echo "${out}" | cut -d ' ' -f 2)
 size=$(echo "${out}" | cut -d ' ' -f 3)
