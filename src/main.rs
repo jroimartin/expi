@@ -23,10 +23,15 @@ extern "C" fn kernel_main() {
         return;
     }
 
-    let x = [0, 1, 2, 3, 4];
-    println!("x = {:#x?}", x);
+    let temp = mailbox::get_temperature().unwrap() as f64 / 1000_f64;
+    println!("SoC temp: {}", temp);
 
-    todo!();
+    let (mem_base, mem_size) = mailbox::get_arm_memory().unwrap();
+    println!("ARM memory: base={:#x} size={:#x}", mem_base, mem_size);
+
+    loop {
+        uart::send_byte(uart::recv_byte());
+    }
 }
 
 /// Kernel entrypoint.

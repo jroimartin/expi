@@ -71,6 +71,40 @@ pub fn set_uartclk_freq(freq: u32) -> Result<(), Error> {
     process_request(&tags)
 }
 
+/// Returns the temperature of the SoC in thousandths of a degree C.
+pub fn get_temperature() -> Result<u32, Error> {
+    let tags: [u32; 5] = [
+        0x30006, // "Get temperature" tag id.
+        8,       // Value buffer length.
+        0,       // Bit 31 is 0 for requests.
+        0,       // Temperature id (should be 0).
+        0,       // Placeholder for temperature.
+    ];
+
+    process_request(&tags)?;
+
+    let temp = unsafe { MBOX_BUFFER.0[6] };
+
+    Ok(temp)
+}
+
+/// Returns `(base, size)` of ARM memory.
+pub fn get_arm_memory() -> Result<(u32, u32), Error> {
+    let tags: [u32; 5] = [
+        0x10005, // "Get ARM memory" tag id.
+        8,       // Value buffer length.
+        0,       // Bit 31 is 0 for requests.
+        0,       // Placeholder for base address.
+        0,       // Placeholder for size in bytes.
+    ];
+
+    process_request(&tags)?;
+
+    let (base, size) = unsafe { (MBOX_BUFFER.0[5], MBOX_BUFFER.0[6]) };
+
+    Ok((base, size))
+}
+
 /// Issue a new mailbox request with the provided concatenated tags.
 pub fn process_request(tags: &[u32]) -> Result<(), Error> {
     unsafe {
