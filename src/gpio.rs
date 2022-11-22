@@ -23,6 +23,15 @@ use crate::time;
 /// [/arch/arm/boot/dts/bcm283x.dtsi]: https://github.com/raspberrypi/linux/blob/770d94882ac145c81af72e9a37180806c3f70bbd/arch/arm/boot/dts/bcm283x.dtsi#L107-L302
 const GPIO_BASE: usize = 0x200000;
 
+/// Base address of GPFSELn registers.
+const GPFSEL_BASE: usize = GPIO_BASE;
+
+/// Base address of GPSETn registers.
+const GPSET_BASE: usize = GPIO_BASE + 0x1c;
+
+/// Base address of GPCLRn registers.
+const GPCLR_BASE: usize = GPIO_BASE + 0x28;
+
 /// GPIO pull-up/down register.
 const GPPUD: usize = GPIO_BASE + 0x94;
 
@@ -31,6 +40,9 @@ const GPPUDCLK0: usize = GPIO_BASE + 0x98;
 
 /// GPIO pull-up/down clock register 1.
 const GPPUDCLK1: usize = GPIO_BASE + 0x9c;
+
+/// Number of GPIO pins.
+const NPIN: u32 = 54;
 
 /// Pull state (pull-up/pull-down) for a GPIO pin.
 pub enum PullState {
@@ -54,7 +66,25 @@ impl From<PullState> for u32 {
     }
 }
 
-/// Set the pull state (pull-up/pull-down) to `state` for the list of GPIO
+/// Pin function.
+pub enum Function {
+    /// Input pin.
+    Input,
+
+    /// Output pin.
+    Output,
+}
+
+impl From<Function> for u32 {
+    fn from(fcn: Function) -> u32 {
+        match fcn {
+            Function::Input => 0b000,
+            Function::Output => 0b001,
+        }
+    }
+}
+
+/// Sets the pull state (pull-up/pull-down) to `state` for the list of GPIO
 /// `pins`.
 pub fn set_pull_state(state: PullState, pins: &[u32]) -> Result<(), Error> {
     unsafe {
@@ -92,4 +122,50 @@ pub fn set_pull_state(state: PullState, pins: &[u32]) -> Result<(), Error> {
 
         Ok(())
     }
+}
+
+/// Configures a pin as output.
+pub fn set_function(pin: u32, fcn: Function) -> Result<(), Error> {
+    if pin >= NPIN {
+        return Err(Error::InvalidGpioPin(pin));
+    }
+
+    let nreg = (pin as usize) / 10;
+    let reg = GPFSEL_BASE + nreg * 4;
+
+    let val = unsafe { mmio::read(reg) };
+    let shift = (pin % 10) * 3;
+    let mask: u32 = 0b111 << shift;
+    let fcn: u32 = fcn.into();
+    unsafe { mmio::write(reg, (val & !mask) | (fcn << shift)) };
+
+    Ok(())
+}
+
+/// Set pin.
+pub fn set(pin: u32) -> Result<(), Error> {
+    if pin >= NPIN {
+        return Err(Error::InvalidGpioPin(pin));
+    }
+
+    let nreg = (pin as usize) / 32;
+    let reg = GPSET_BASE + nreg * 4;
+
+    unsafe { mmio::write(reg, 1 << (pin % 32)) };
+
+    Ok(())
+}
+
+/// Clear pin.
+pub fn clear(pin: u32) -> Result<(), Error> {
+    if pin >= NPIN {
+        return Err(Error::InvalidGpioPin(pin));
+    }
+
+    let nreg = (pin as usize) / 32;
+    let reg = GPCLR_BASE + nreg * 4;
+
+    unsafe { mmio::write(reg, 1 << (pin % 32)) };
+
+    Ok(())
 }
