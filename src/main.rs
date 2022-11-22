@@ -15,6 +15,9 @@ mod uart;
 
 use core::arch::asm;
 
+/// A LED is connected to GPIO26.
+const GPIO_LED: u32 = 26;
+
 /// Kernel main function.
 #[no_mangle]
 extern "C" fn kernel_main() {
@@ -23,14 +26,24 @@ extern "C" fn kernel_main() {
         return;
     }
 
+    println!("ExPI");
+
     let temp = mailbox::get_temperature().unwrap() as f64 / 1000_f64;
     println!("SoC temp: {}", temp);
 
     let (mem_base, mem_size) = mailbox::get_arm_memory().unwrap();
     println!("ARM memory: base={:#x} size={:#x}", mem_base, mem_size);
 
+    println!("Press any key to continue...");
+    uart::send_byte(uart::recv_byte());
+
+    gpio::set_function(GPIO_LED, gpio::Function::Output).unwrap();
     loop {
-        uart::send_byte(uart::recv_byte());
+        println!("X");
+        gpio::set(GPIO_LED).unwrap();
+        time::delay(1_000_000);
+        gpio::clear(GPIO_LED).unwrap();
+        time::delay(1_000_000);
     }
 }
 
