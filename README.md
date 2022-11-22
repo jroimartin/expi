@@ -31,7 +31,7 @@ Note: check the boot debug output for the exact list.
 cargo r --release
 ```
 
-## Enable the first PL011 (UART0) in the Raspberry Pi
+## Enable Raspberry Pi's first PL011 (UART0)
 
 Raspberry Pi's first PL011 (UART0) can be enabled adding the follow lines to
 config.txt.
