@@ -1,21 +1,18 @@
-//! expi is an experimental OS for the Raspberry Pi 3 Model B.
+//! Example of how to use the GPIO.
 
 #![feature(naked_functions, panic_info_message)]
 #![no_std]
 #![no_main]
 
-mod errors;
-mod gpio;
-mod mailbox;
-mod mmio;
-mod panic;
-mod print;
-mod time;
-mod uart;
-
 use core::arch::asm;
+use core::panic::PanicInfo;
 
-/// A LED is connected to GPIO26.
+use expi::gpio;
+use expi::time;
+use expi::uart;
+use expi::{print, println};
+
+/// The LED is connected to GPIO26.
 const GPIO_LED: u32 = 26;
 
 /// Kernel main function.
@@ -28,18 +25,9 @@ extern "C" fn kernel_main() {
 
     println!("ExPI");
 
-    let temp = mailbox::get_temperature().unwrap() as f64 / 1000_f64;
-    println!("SoC temp: {}", temp);
-
-    let (mem_base, mem_size) = mailbox::get_arm_memory().unwrap();
-    println!("ARM memory: base={:#x} size={:#x}", mem_base, mem_size);
-
-    println!("Press any key to continue...");
-    uart::send_byte(uart::recv_byte());
-
     gpio::set_function(GPIO_LED, gpio::Function::Output).unwrap();
     loop {
-        println!("X");
+        println!("blink!");
         gpio::set(GPIO_LED).unwrap();
         time::delay(1_000_000);
         gpio::clear(GPIO_LED).unwrap();
@@ -62,4 +50,22 @@ unsafe extern "C" fn _start() -> ! {
         "#,
         options(noreturn),
     )
+}
+
+/// Panic handler.
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    print!("\n\n!!! PANIC !!!\n\n");
+
+    if let Some(location) = info.location() {
+        print!("{}:{}", location.file(), location.line());
+    }
+
+    if let Some(message) = info.message() {
+        println!(": {}", message);
+    } else {
+        println!();
+    }
+
+    loop {}
 }

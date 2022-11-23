@@ -82,7 +82,8 @@ pub fn init() -> Result<(), Error> {
         mmio::write(UARTCR, 0);
 
         // Disable pull-up/down in pins 14 (TX) and 15 (RX).
-        gpio::set_pull_state(PullState::Off, &[14, 15])?;
+        gpio::set_pull_state(14, PullState::Off)?;
+        gpio::set_pull_state(15, PullState::Off)?;
 
         // Set UART clock frequency to 3MHz.
         mailbox::set_uartclk_freq(3_000_000)?;

@@ -19,12 +19,20 @@ const MMIO_BASE: usize = 0x3f000000;
 
 /// Read register. `reg` is the offset of the register from the MMIO base
 /// address.
+///
+/// # Safety
+///
+/// This function reads an arbitrary memory address, thus it is unsafe.
 pub unsafe fn read(reg: usize) -> u32 {
     read_volatile((MMIO_BASE + reg) as *const u32)
 }
 
 /// Write value into register. `reg` is the offset of the register from the
 /// MMIO base address.
+///
+/// # Safety
+///
+/// This function writes to an arbitrary memory address, thus it is unsafe.
 pub unsafe fn write(reg: usize, val: u32) {
     write_volatile((MMIO_BASE + reg) as *mut u32, val)
 }

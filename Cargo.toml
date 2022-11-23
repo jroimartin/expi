@@ -5,11 +5,9 @@ edition = "2021"
 publish = false
 
 [profile.dev]
-panic = "abort"
 debug = true
 
 [profile.release]
-panic = "abort"
 debug = false
 opt-level = "z"
 

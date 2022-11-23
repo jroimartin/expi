@@ -35,11 +35,8 @@ const GPCLR_BASE: usize = GPIO_BASE + 0x28;
 /// GPIO pull-up/down register.
 const GPPUD: usize = GPIO_BASE + 0x94;
 
-/// GPIO pull-up/down clock register 0.
-const GPPUDCLK0: usize = GPIO_BASE + 0x98;
-
-/// GPIO pull-up/down clock register 1.
-const GPPUDCLK1: usize = GPIO_BASE + 0x9c;
+/// Base address of GPPUDCLKn registers.
+const GPPUDCLK_BASE: usize = GPIO_BASE + 0x98;
 
 /// Number of GPIO pins.
 const NPIN: u32 = 54;
@@ -84,9 +81,15 @@ impl From<Function> for u32 {
     }
 }
 
-/// Sets the pull state (pull-up/pull-down) to `state` for the list of GPIO
-/// `pins`.
-pub fn set_pull_state(state: PullState, pins: &[u32]) -> Result<(), Error> {
+/// Configures the pull state (pull-up/pull-down) of a GPIO pin.
+pub fn set_pull_state(pin: u32, state: PullState) -> Result<(), Error> {
+    if pin >= NPIN {
+        return Err(Error::InvalidGpioPin(pin));
+    }
+
+    let nreg = (pin as usize) / 32;
+    let reg = GPPUDCLK_BASE + nreg * 4;
+
     unsafe {
         // Write to GPPUD to set the required control signal.
         mmio::write(GPPUD, state.into());
@@ -95,19 +98,9 @@ pub fn set_pull_state(state: PullState, pins: &[u32]) -> Result<(), Error> {
         // the control signal.
         time::delay(150);
 
-        // Write to GPPUDCLK0/1 to clock the control signal into the target
-        // GPIO pads.
-        let mut clk0 = 0u32;
-        let mut clk1 = 0u32;
-        for &pin in pins {
-            match pin {
-                0..=31 => clk0 |= 1 << pin,
-                32..=53 => clk1 |= 1 << (pin - 32),
-                _ => return Err(Error::InvalidGpioPin(pin)),
-            }
-        }
-        mmio::write(GPPUDCLK0, clk0);
-        mmio::write(GPPUDCLK1, clk1);
+        // Write to GPPUDCLKn to clock the control signal into the target GPIO
+        // pad.
+        mmio::write(reg, 1 << (pin % 32));
 
         // Wait at least 150 cycles. This provides the required hold time for
         // the control signal.
@@ -116,15 +109,14 @@ pub fn set_pull_state(state: PullState, pins: &[u32]) -> Result<(), Error> {
         // Write to GPPUD to remove the control signal.
         mmio::write(GPPUD, 0);
 
-        // Write to GPPUDCLK0/1 to remove the clock.
-        mmio::write(GPPUDCLK0, 0);
-        mmio::write(GPPUDCLK1, 0);
-
-        Ok(())
+        // Write to GPPUDCLKn to remove the clock.
+        mmio::write(reg, 0);
     }
+
+    Ok(())
 }
 
-/// Configures a pin as output.
+/// Configures the operation of a GPIO pin.
 pub fn set_function(pin: u32, fcn: Function) -> Result<(), Error> {
     if pin >= NPIN {
         return Err(Error::InvalidGpioPin(pin));
@@ -142,7 +134,7 @@ pub fn set_function(pin: u32, fcn: Function) -> Result<(), Error> {
     Ok(())
 }
 
-/// Set pin.
+/// Sets a GPIO pin.
 pub fn set(pin: u32) -> Result<(), Error> {
     if pin >= NPIN {
         return Err(Error::InvalidGpioPin(pin));
@@ -156,7 +148,7 @@ pub fn set(pin: u32) -> Result<(), Error> {
     Ok(())
 }
 
-/// Clear pin.
+/// Clears a GPIO pin.
 pub fn clear(pin: u32) -> Result<(), Error> {
     if pin >= NPIN {
         return Err(Error::InvalidGpioPin(pin));
