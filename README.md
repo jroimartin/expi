@@ -1,14 +1,14 @@
-# ExPI
+# expi
 
-Experimental OS for Raspberry Pi 3 Model B.
+expi simplifies writing kernels for the Raspberry Pi 3 Model B.
 
 ## Build
 
-Install [flatelf] and generate the kernel image:
+Install [flatelf] and generate a kernel image:
 
 ```
-cargo b --release
-flatelf target/aarch64-unknown-none/release/expi \
+cargo b --release --bin <bin>
+flatelf target/aarch64-unknown-none/release/<bin> \
     target/aarch64-unknown-none/release/kernel8.img
 ```
 
@@ -28,7 +28,7 @@ Note: check the boot debug output for the exact list.
 ## Run in QEMU
 
 ```
-cargo r --release
+cargo r --release --bin <bin>
 ```
 
 ## Enable Raspberry Pi's first PL011 (UART0)

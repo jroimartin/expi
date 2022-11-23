@@ -1,4 +1,4 @@
-//! Crate to write baremetal applications for the Raspberry Pi 3 Model B.
+//! expi simplifies writing kernels for the Raspberry Pi 3 Model B.
 
 #![no_std]
 #![feature(panic_info_message)]

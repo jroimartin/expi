@@ -1,8 +1,8 @@
-[package]
-name = "expi"
-version = "0.1.0"
-edition = "2021"
-publish = false
+[workspace]
+members = [
+    "expi",
+    "expi_examples"
+]
 
 [profile.dev]
 debug = true
@@ -10,5 +10,3 @@ debug = true
 [profile.release]
 debug = false
 opt-level = "z"
-
-[dependencies]

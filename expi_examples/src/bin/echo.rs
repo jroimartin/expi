@@ -18,7 +18,7 @@ extern "C" fn kernel_main() {
         return;
     }
 
-    println!("ExPI");
+    println!("expi");
 
     loop {
         uart::send_byte(uart::recv_byte());

@@ -23,7 +23,7 @@ extern "C" fn kernel_main() {
         return;
     }
 
-    println!("ExPI");
+    println!("expi");
 
     gpio::set_function(GPIO_LED, gpio::Function::Output).unwrap();
     loop {
