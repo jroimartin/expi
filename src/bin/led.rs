@@ -27,7 +27,6 @@ extern "C" fn kernel_main() {
 
     gpio::set_function(GPIO_LED, gpio::Function::Output).unwrap();
     loop {
-        println!("blink!");
         gpio::set(GPIO_LED).unwrap();
         time::delay(1_000_000);
         gpio::clear(GPIO_LED).unwrap();
