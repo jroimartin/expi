@@ -26,11 +26,20 @@ const GPIO_BASE: usize = 0x200000;
 /// Base address of GPFSELn registers.
 const GPFSEL_BASE: usize = GPIO_BASE;
 
+/// Number of GPFSELn registers.
+const NGPFSEL: usize = 6;
+
 /// Base address of GPSETn registers.
 const GPSET_BASE: usize = GPIO_BASE + 0x1c;
 
+/// Number of GPSETn registers.
+const NGPSET: usize = 2;
+
 /// Base address of GPCLRn registers.
 const GPCLR_BASE: usize = GPIO_BASE + 0x28;
+
+/// Number of GPCLRn registers.
+const NGPCLR: usize = 2;
 
 /// GPIO pull-up/down register.
 const GPPUD: usize = GPIO_BASE + 0x94;
@@ -38,8 +47,8 @@ const GPPUD: usize = GPIO_BASE + 0x94;
 /// Base address of GPPUDCLKn registers.
 const GPPUDCLK_BASE: usize = GPIO_BASE + 0x98;
 
-/// Number of GPIO pins.
-const NPIN: u32 = 54;
+/// Number of GPPUDCLKn registers.
+const NGPPUDCLK: usize = 2;
 
 /// Pull state (pull-up/pull-down) for a GPIO pin.
 pub enum PullState {
@@ -64,6 +73,7 @@ impl From<PullState> for u32 {
 }
 
 /// Pin function.
+#[derive(Clone, Copy)]
 pub enum Function {
     /// Input pin.
     Input,
@@ -81,83 +91,125 @@ impl From<Function> for u32 {
     }
 }
 
-/// Configures the pull state (pull-up/pull-down) of a GPIO pin.
-pub fn set_pull_state(pin: u32, state: PullState) -> Result<(), Error> {
-    if pin >= NPIN {
-        return Err(Error::InvalidGpioPin(pin));
+/// Configures the pull state (pull-up/pull-down) of a set of GPIO pins.
+pub fn set_pull_state(state: PullState, pins: &[u32]) -> Result<(), Error> {
+    // Precompute the values to be written in regs.
+    let mut regs = [0u32; NGPPUDCLK];
+    for &pin in pins {
+        let n = (pin as usize) / 32;
+
+        if n >= regs.len() {
+            return Err(Error::InvalidGpioPin(pin));
+        }
+
+        regs[n] |= 1 << (pin % 32);
     }
 
-    let nreg = (pin as usize) / 32;
-    let reg = GPPUDCLK_BASE + nreg * 4;
+    // Write to GPPUD to set the required control signal.
+    unsafe { mmio::write(GPPUD, state.into()) };
 
-    unsafe {
-        // Write to GPPUD to set the required control signal.
-        mmio::write(GPPUD, state.into());
+    // Wait at least 150 cycles. This provides the required set-up time for
+    // the control signal.
+    time::delay(150);
 
-        // Wait at least 150 cycles. This provides the required set-up time for
-        // the control signal.
-        time::delay(150);
+    // Write to GPPUDCLKn to clock the control signal into the target GPIO
+    // pad.
+    for (i, &reg) in regs.iter().enumerate() {
+        let addr = GPPUDCLK_BASE + i * 4;
+        unsafe { mmio::write(addr, reg) };
+    }
 
-        // Write to GPPUDCLKn to clock the control signal into the target GPIO
-        // pad.
-        mmio::write(reg, 1 << (pin % 32));
+    // Wait at least 150 cycles. This provides the required hold time for
+    // the control signal.
+    time::delay(150);
 
-        // Wait at least 150 cycles. This provides the required hold time for
-        // the control signal.
-        time::delay(150);
+    // Write to GPPUD to remove the control signal.
+    unsafe { mmio::write(GPPUD, 0) };
 
-        // Write to GPPUD to remove the control signal.
-        mmio::write(GPPUD, 0);
-
-        // Write to GPPUDCLKn to remove the clock.
-        mmio::write(reg, 0);
+    // Write to GPPUDCLKn to remove the clock.
+    for (i, _val) in regs.iter().enumerate() {
+        let addr = GPPUDCLK_BASE + i * 4;
+        unsafe { mmio::write(addr, 0) };
     }
 
     Ok(())
 }
 
-/// Configures the operation of a GPIO pin.
-pub fn set_function(pin: u32, fcn: Function) -> Result<(), Error> {
-    if pin >= NPIN {
-        return Err(Error::InvalidGpioPin(pin));
+/// Configures the operation of a set of GPIO pins.
+pub fn set_function(fcn: Function, pins: &[u32]) -> Result<(), Error> {
+    // Read the initial register values.
+    let mut regs = [0u32; NGPFSEL];
+    for (i, reg) in regs.iter_mut().enumerate() {
+        let addr = GPFSEL_BASE + i * 4;
+        *reg = unsafe { mmio::read(addr) };
     }
 
-    let nreg = (pin as usize) / 10;
-    let reg = GPFSEL_BASE + nreg * 4;
+    // Precompute the final register values.
+    for &pin in pins {
+        let n = (pin as usize) / 10;
 
-    let val = unsafe { mmio::read(reg) };
-    let shift = (pin % 10) * 3;
-    let mask: u32 = 0b111 << shift;
-    let fcn: u32 = fcn.into();
-    unsafe { mmio::write(reg, (val & !mask) | (fcn << shift)) };
+        if n >= regs.len() {
+            return Err(Error::InvalidGpioPin(pin));
+        }
+
+        let shift = (pin % 10) * 3;
+        let mask: u32 = 0b111 << shift;
+        let fcn: u32 = fcn.into();
+
+        regs[n] = (regs[n] & !mask) | (fcn << shift)
+    }
+
+    // Write registers.
+    for (i, &reg) in regs.iter().enumerate() {
+        let addr = GPFSEL_BASE + i * 4;
+        unsafe { mmio::write(addr, reg) };
+    }
 
     Ok(())
 }
 
-/// Sets a GPIO pin.
-pub fn set(pin: u32) -> Result<(), Error> {
-    if pin >= NPIN {
-        return Err(Error::InvalidGpioPin(pin));
+/// Sets a set of GPIO pins.
+pub fn set(pins: &[u32]) -> Result<(), Error> {
+    // Precompute the final register values.
+    let mut regs = [0u32; NGPSET];
+    for &pin in pins {
+        let n = (pin as usize) / 32;
+
+        if n >= regs.len() {
+            return Err(Error::InvalidGpioPin(pin));
+        }
+
+        regs[n] |= 1 << (pin % 32)
     }
 
-    let nreg = (pin as usize) / 32;
-    let reg = GPSET_BASE + nreg * 4;
-
-    unsafe { mmio::write(reg, 1 << (pin % 32)) };
+    // Write registers.
+    for (i, &reg) in regs.iter().enumerate() {
+        let addr = GPSET_BASE + i * 4;
+        unsafe { mmio::write(addr, reg) };
+    }
 
     Ok(())
 }
 
-/// Clears a GPIO pin.
-pub fn clear(pin: u32) -> Result<(), Error> {
-    if pin >= NPIN {
-        return Err(Error::InvalidGpioPin(pin));
+/// Clears a set of GPIO pins.
+pub fn clear(pins: &[u32]) -> Result<(), Error> {
+    // Precompute the final register values.
+    let mut regs = [0u32; NGPCLR];
+    for &pin in pins {
+        let n = (pin as usize) / 32;
+
+        if n >= regs.len() {
+            return Err(Error::InvalidGpioPin(pin));
+        }
+
+        regs[n] |= 1 << (pin % 32)
     }
 
-    let nreg = (pin as usize) / 32;
-    let reg = GPCLR_BASE + nreg * 4;
-
-    unsafe { mmio::write(reg, 1 << (pin % 32)) };
+    // Write registers.
+    for (i, &reg) in regs.iter().enumerate() {
+        let addr = GPCLR_BASE + i * 4;
+        unsafe { mmio::write(addr, reg) };
+    }
 
     Ok(())
 }

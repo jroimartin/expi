@@ -25,11 +25,11 @@ extern "C" fn kernel_main() {
 
     println!("expi");
 
-    gpio::set_function(GPIO_LED, gpio::Function::Output).unwrap();
+    gpio::set_function(gpio::Function::Output, &[GPIO_LED]).unwrap();
     loop {
-        gpio::set(GPIO_LED).unwrap();
+        gpio::set(&[GPIO_LED]).unwrap();
         time::delay(1_000_000);
-        gpio::clear(GPIO_LED).unwrap();
+        gpio::clear(&[GPIO_LED]).unwrap();
         time::delay(1_000_000);
     }
 }
