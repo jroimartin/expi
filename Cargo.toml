@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "expi",
-    "expi_examples"
+    "expi_examples",
 ]
 
 [profile.dev]
