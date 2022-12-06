@@ -4,9 +4,9 @@
 //!
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 
+use crate::cpu::time;
 use crate::errors::Error;
 use crate::mmio;
-use crate::time;
 
 /// Base address of GPIO.
 ///

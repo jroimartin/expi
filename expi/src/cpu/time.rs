@@ -3,6 +3,7 @@
 use core::arch::asm;
 
 /// Wait at least `cycles`.
+#[inline(always)]
 pub fn delay(cycles: u64) {
     unsafe {
         asm!(
@@ -11,7 +12,7 @@ pub fn delay(cycles: u64) {
                     subs {cycles}, {cycles}, #1
                     bne 1b
             "#,
-            cycles = inout(reg) cycles => _
+            cycles = inout(reg) cycles => _,
         )
     }
 }

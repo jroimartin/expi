@@ -7,8 +7,8 @@
 use core::arch::asm;
 use core::panic::PanicInfo;
 
+use expi::cpu::time;
 use expi::gpio;
-use expi::time;
 use expi::uart;
 use expi::{print, println};
 
