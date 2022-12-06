@@ -7,9 +7,9 @@
 use core::arch::asm;
 use core::panic::PanicInfo;
 
+use expi::cpu::{self, pm, time};
 use expi::uart;
 use expi::{print, println};
-use expi::cpu::{self, time, pm};
 
 /// Kernel main function.
 #[no_mangle]
@@ -28,29 +28,29 @@ extern "C" fn kernel_main() {
     let start = pm::cycle_counter();
     time::delay(1000);
     let end = pm::cycle_counter();
-    println!("start={} end={} cycles={}", start, end, end-start);
+    println!("start={} end={} cycles={}", start, end, end - start);
 
     let start = pm::cycle_counter();
     time::delay(1000);
     let end = pm::cycle_counter();
-    println!("start={} end={} cycles={}", start, end, end-start);
+    println!("start={} end={} cycles={}", start, end, end - start);
 
     let start = pm::cycle_counter();
     time::delay(1000);
     let end = pm::cycle_counter();
-    println!("start={} end={} cycles={}", start, end, end-start);
-
-    pm::reset_cycle_counter();
-    let start = pm::cycle_counter();
-    time::delay(1000);
-    let end = pm::cycle_counter();
-    println!("start={} end={} cycles={}", start, end, end-start);
+    println!("start={} end={} cycles={}", start, end, end - start);
 
     pm::reset_cycle_counter();
     let start = pm::cycle_counter();
     time::delay(1000);
     let end = pm::cycle_counter();
-    println!("start={} end={} cycles={}", start, end, end-start);
+    println!("start={} end={} cycles={}", start, end, end - start);
+
+    pm::reset_cycle_counter();
+    let start = pm::cycle_counter();
+    time::delay(1000);
+    let end = pm::cycle_counter();
+    println!("start={} end={} cycles={}", start, end, end - start);
 }
 
 /// Kernel entrypoint.
