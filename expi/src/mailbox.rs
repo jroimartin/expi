@@ -53,7 +53,7 @@ const MBOX_CHAN_PROP: u32 = 8;
 struct MboxBuffer([u32; 8192]);
 
 /// Mailbox buffer used for sending and receiving requests.
-// FIXME: protect this buffer with a mutex, so mailbox operations are
+// TODO(rm): protect this buffer with a mutex, so mailbox operations are
 // thread-safe.
 static mut MBOX_BUFFER: MboxBuffer = MboxBuffer([0u32; 8192]);
 

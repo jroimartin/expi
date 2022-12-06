@@ -9,7 +9,7 @@ pub struct UartWriter;
 
 impl fmt::Write for UartWriter {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        // FIXME: make this function thread-safe.
+        // TODO(rm): make this function thread-safe.
         for b in s.bytes() {
             if b == b'\n' {
                 uart::send_byte(b'\r');
