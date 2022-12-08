@@ -3,16 +3,16 @@
 version = 3
 
 [[package]]
-name = "expi"
-version = "0.1.0"
-
-[[package]]
-name = "expi_examples"
+name = "ccntr"
 version = "0.1.0"
 dependencies = [
  "expi",
  "libm",
 ]
+
+[[package]]
+name = "expi"
+version = "0.1.0"
 
 [[package]]
 name = "libm"

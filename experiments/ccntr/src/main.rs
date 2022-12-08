@@ -1,4 +1,4 @@
-//! Example to test the cycle counter.
+//! Cycle counting experiment.
 
 #![feature(naked_functions, panic_info_message)]
 #![no_std]
@@ -31,12 +31,12 @@ extern "C" fn kernel_main() {
         let mut samples = [0f64; SIZE];
         samples.fill_with(|| count(n) as f64);
 
-        let mean = samples.iter().sum::<f64>() / SIZE as f64;
+        let mean = samples.iter().sum::<f64>() / (SIZE as f64);
 
         let var = samples
             .iter()
             .fold(0f64, |acc, x| acc + libm::pow(x - mean, 2.0))
-            / SIZE as f64;
+            / (SIZE as f64);
 
         let sd = libm::sqrt(var);
 

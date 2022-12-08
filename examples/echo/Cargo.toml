@@ -1,9 +1,8 @@
 [package]
-name = "expi_examples"
+name = "echo"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [dependencies]
-libm = "0.2.6"
-expi = { path = "../expi" }
+expi = { path = "../../expi" }

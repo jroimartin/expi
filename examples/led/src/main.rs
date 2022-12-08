@@ -1,4 +1,4 @@
-//! Example of how to use the serial port.
+//! Blinking LED.
 
 #![feature(naked_functions, panic_info_message)]
 #![no_std]
@@ -7,8 +7,13 @@
 use core::arch::asm;
 use core::panic::PanicInfo;
 
+use expi::cpu::time;
+use expi::gpio;
 use expi::uart;
 use expi::{print, println};
+
+/// The LED is connected to GPIO26.
+const GPIO_LED: u32 = 26;
 
 /// Kernel main function.
 #[no_mangle]
@@ -20,8 +25,12 @@ extern "C" fn kernel_main() {
 
     println!("expi");
 
+    gpio::set_function(GPIO_LED, gpio::Function::Output).unwrap();
     loop {
-        uart::send_byte(uart::recv_byte());
+        gpio::set(&[GPIO_LED]).unwrap();
+        time::delay(1_000_000);
+        gpio::clear(&[GPIO_LED]).unwrap();
+        time::delay(1_000_000);
     }
 }
 

@@ -36,7 +36,7 @@ pub fn enable_cycle_counter() {
         // Set PMCR_EL0.
         asm!("msr pmcr_el0, {pmcr_el0}", pmcr_el0 = in(reg) pmcr_el0);
 
-        // Serialize previous operations.
+        // Instruction Synchronization Barrier.
         asm!("isb");
     }
 }
@@ -55,7 +55,7 @@ pub fn reset_cycle_counter() {
         // Set PMCR_EL0.
         asm!("msr pmcr_el0, {pmcr_el0}", pmcr_el0 = in(reg) pmcr_el0);
 
-        // Serialize previous operations.
+        // Instruction Synchronization Barrier.
         asm!("isb");
     }
 }

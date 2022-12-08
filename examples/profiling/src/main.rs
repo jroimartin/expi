@@ -1,4 +1,4 @@
-//! Example to test the cycle counter.
+//! Simple profiling.
 
 #![feature(naked_functions, panic_info_message)]
 #![no_std]

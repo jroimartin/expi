@@ -7,8 +7,9 @@ expi simplifies writing kernels for the Raspberry Pi 3 Model B.
 Install [flatelf] and generate a kernel image:
 
 ```
-cargo b --release --bin <bin>
-flatelf target/aarch64-unknown-none/release/<bin> \
+cd <kernel>
+cargo build --release
+flatelf target/aarch64-unknown-none/release/<kernel> \
     target/aarch64-unknown-none/release/kernel8.img
 ```
 
@@ -28,7 +29,8 @@ Note: check the boot debug output for the exact list.
 ## Run in QEMU
 
 ```
-cargo r --release --bin <bin>
+cd <kernel>
+cargo run --release
 ```
 
 ## Enable Raspberry Pi's first PL011 (UART0)
