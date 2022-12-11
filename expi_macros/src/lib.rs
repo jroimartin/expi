@@ -8,6 +8,7 @@ use syn::punctuated::Punctuated;
 use syn::{parse_macro_input, Ident, ItemFn, Token};
 
 /// Generates the boilerplate required to call the provided function on boot.
+///
 /// It also generates a panic handler and tries to initialize the UART, so
 /// panic messages can be printed. If UART initialization fails, it enters an
 /// infinite loop.
@@ -152,7 +153,9 @@ impl Parse for ExceptionVectorTableParams {
     }
 }
 
-/// Generates a exception vector table. It takes the following arguments:
+/// Generates an exception vector table.
+///
+/// It takes the following arguments:
 ///
 /// - `curr_el_sp0_sync`: The exception handler for a synchronous exception
 ///   from the current EL using SP0.

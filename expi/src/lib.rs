@@ -30,6 +30,7 @@
 
 pub mod cpu;
 pub mod gpio;
+pub mod intc;
 pub mod mailbox;
 pub mod mmio;
 pub mod print;
