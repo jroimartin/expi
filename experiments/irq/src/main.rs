@@ -16,7 +16,7 @@ use expi::{print, println};
 /// The button is connected to GPIO16.
 const GPIO_BUTTON: u32 = 16;
 
-/// Base address of the BCM2837 IRQ controller.
+/// Base address of the BCM2837 interrupt controller.
 const IRQ_BASE: usize = 0xb000;
 
 /// IRQ enable 2 register.

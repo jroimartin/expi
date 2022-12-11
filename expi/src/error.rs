@@ -1,4 +1,4 @@
-//! Errors.
+//! The expi [`Error`] type.
 
 /// Expi error.
 #[derive(Debug)]

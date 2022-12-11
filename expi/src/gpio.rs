@@ -7,7 +7,7 @@
 use core::fmt;
 
 use crate::cpu::time;
-use crate::errors::Error;
+use crate::error::Error;
 use crate::mmio;
 
 /// Base address of GPIO.

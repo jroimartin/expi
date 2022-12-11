@@ -1,18 +1,2 @@
 [alias]
 pedant = "clippy -- -W clippy::missing_docs_in_private_items"
-
-[build]
-target = "aarch64-unknown-none"
-
-[target.aarch64-unknown-none]
-runner = "./qemu-run"
-
-[unstable]
-build-std = ["core"]
-
-[profile.dev]
-panic = "abort"
-
-[profile.release]
-panic = "abort"
-opt-level = "z"

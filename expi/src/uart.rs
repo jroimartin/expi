@@ -8,7 +8,7 @@
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 //! [PL011 Technical Reference Manual]: https://static6.arrow.com/aropdfconversion/32f6a7175ece91477c63bc40811c02e077718861/ddi0183.pdf
 
-use crate::errors::Error;
+use crate::error::Error;
 use crate::gpio::{self, PullState};
 use crate::mailbox;
 use crate::mmio;
