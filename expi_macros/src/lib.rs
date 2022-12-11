@@ -147,9 +147,8 @@ struct ExceptionVectorTableParams(Punctuated<Ident, Token![,]>);
 
 impl Parse for ExceptionVectorTableParams {
     fn parse(input: ParseStream) -> syn::Result<ExceptionVectorTableParams> {
-        Ok(ExceptionVectorTableParams(
-            Punctuated::<Ident, Token![,]>::parse_terminated(input)?,
-        ))
+        let params = Punctuated::parse_terminated(input)?;
+        Ok(ExceptionVectorTableParams(params))
     }
 }
 
