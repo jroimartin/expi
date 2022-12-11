@@ -29,9 +29,24 @@
 #![feature(panic_info_message)]
 
 pub mod cpu;
-pub mod error;
 pub mod gpio;
 pub mod mailbox;
 pub mod mmio;
 pub mod print;
 pub mod uart;
+
+/// Expi error.
+#[derive(Debug)]
+pub enum Error {
+    /// Invalid GPIO pin.
+    InvalidGpioPin(u32),
+
+    /// The size of the provided output parameter is not valid.
+    InvalidOutputSize,
+
+    /// Mailbox request could not be processed.
+    MailboxRequestFailed,
+
+    /// There is not enough room in the mailbox buffer to allocate the request.
+    MailboxRequestIsTooBig,
+}

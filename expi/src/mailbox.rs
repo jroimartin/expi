@@ -5,8 +5,8 @@
 //!
 //! [Mailboxes]: https://github.com/raspberrypi/firmware/wiki/Mailboxes
 
-use crate::error::Error;
 use crate::mmio;
+use crate::Error;
 
 /// Base address of the mailbox.
 ///
