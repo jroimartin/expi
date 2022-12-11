@@ -4,13 +4,11 @@
 #![no_std]
 #![no_main]
 
-use expi::cpu::time;
+use expi::cpu::{exceptions, time};
 use expi::gpio;
 use expi::intc;
 use expi::println;
 use expi_macros::{entrypoint, exception_handler, exception_vector_table};
-
-use core::arch::asm;
 
 /// The LED is connected to GPIO26.
 const GPIO_LED: u32 = 26;
@@ -31,22 +29,20 @@ fn kernel_main() {
     gpio::set_function(GPIO_BUTTON, gpio::Function::Input).unwrap();
     gpio::set_event(GPIO_BUTTON, gpio::Event::FallingEdge).unwrap();
 
-    // TODO(rm): move interrupt handling into expi.
-
-    // Mask all exceptions.
-    unsafe { asm!("msr daifset, #0b1111") };
+    // Mask all interrupts.
+    exceptions::mask(exceptions::Interrupt::Debug);
+    exceptions::mask(exceptions::Interrupt::SError);
+    exceptions::mask(exceptions::Interrupt::Irq);
+    exceptions::mask(exceptions::Interrupt::Fiq);
 
     // Enable pysical IRQ routing.
-    let mut hcr_el2: u64;
-    unsafe { asm!("mrs {hcr_el2}, hcr_el2", hcr_el2 = out(reg) hcr_el2) };
-    hcr_el2 |= 1 << 4;
-    unsafe { asm!("msr hcr_el2, {hcr_el2}", hcr_el2 = in(reg) hcr_el2) };
+    exceptions::enable_routing(exceptions::Interrupt::Irq).unwrap();
 
     // Set vector table address.
-    unsafe { asm!("msr vbar_el2, {addr}", addr = in(reg) 0x90000u64) };
+    exceptions::set_vector_table(0x90000);
 
-    // Unmask IRQ exceptions.
-    unsafe { asm!("msr daifclr, #0b0010") };
+    // Unmask IRQ.
+    exceptions::unmask(exceptions::Interrupt::Irq);
 
     // Enable GPIO interrupts.
     intc::enable(intc::Peripheral::GPIO);

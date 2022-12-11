@@ -39,6 +39,9 @@ pub mod uart;
 /// Expi error.
 #[derive(Debug)]
 pub enum Error {
+    /// At least one of the arguments provided to the function is not valid.
+    InvalidArg,
+
     /// Invalid GPIO pin.
     InvalidGpioPin(u32),
 
