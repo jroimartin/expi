@@ -10,7 +10,7 @@ use expi_macros::entrypoint;
 
 /// Kernel main function.
 #[entrypoint]
-extern "C" fn kernel_main() {
+fn kernel_main() {
     println!("expi");
 
     loop {

@@ -14,7 +14,7 @@ const GPIO_LED: u32 = 26;
 
 /// Kernel main function.
 #[entrypoint]
-extern "C" fn kernel_main() {
+fn kernel_main() {
     println!("expi");
 
     gpio::set_function(GPIO_LED, gpio::Function::Output).unwrap();
