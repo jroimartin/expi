@@ -45,6 +45,9 @@ pub enum Error {
     /// Invalid GPIO pin.
     InvalidGpioPin(usize),
 
+    /// Invalid Alternate Function number.
+    InvalidAltFcnNum(u32),
+
     /// Invalid GPU interrupt.
     InvalidGpuInterrupt(u32),
 

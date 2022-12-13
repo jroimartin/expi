@@ -87,14 +87,35 @@ impl From<PullState> for u32 {
     }
 }
 
+/// Alternate function number.
+pub struct AltFcnNum(u32);
+
+impl TryFrom<u32> for AltFcnNum {
+    type Error = Error;
+
+    fn try_from(num: u32) -> Result<AltFcnNum, Error> {
+        match num {
+            0 => Ok(AltFcnNum(0b100)),
+            1 => Ok(AltFcnNum(0b101)),
+            2 => Ok(AltFcnNum(0b110)),
+            3 => Ok(AltFcnNum(0b111)),
+            4 => Ok(AltFcnNum(0b011)),
+            5 => Ok(AltFcnNum(0b010)),
+            n => Err(Error::InvalidAltFcnNum(n)),
+        }
+    }
+}
+
 /// Pin function.
-#[derive(Copy, Clone)]
 pub enum Function {
     /// Input pin.
     Input,
 
     /// Output pin.
     Output,
+
+    /// Alternate function.
+    AltFcn(AltFcnNum),
 }
 
 impl From<Function> for u32 {
@@ -102,6 +123,7 @@ impl From<Function> for u32 {
         match fcn {
             Function::Input => 0b000,
             Function::Output => 0b001,
+            Function::AltFcn(num) => num.0,
         }
     }
 }
