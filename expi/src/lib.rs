@@ -45,6 +45,9 @@ pub enum Error {
     /// Invalid GPIO pin.
     InvalidGpioPin(u32),
 
+    /// Invalid GPU interrupt.
+    InvalidGpuInterrupt(u32),
+
     /// The size of the provided output parameter is not valid.
     InvalidOutputSize,
 
