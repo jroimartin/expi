@@ -190,6 +190,10 @@ impl Parse for ExceptionVectorTableParams {
 /// - `lower_el_aarch32_serror`: The exception handler for a System Error
 ///   exception from a lower EL (AArch32).
 ///
+/// Under the hood it creates a symbol called `_exception_vector_table` and
+/// specifies that it must be placed into a section called
+/// `.exception_vector_table`.
+///
 /// Given that vector tables are usually not referenced by other code, we need
 /// to ensure that the linker does not optimize them away. This can be done
 /// with the linker flag `--undefined`, which forces the symbol to be entered
@@ -203,8 +207,8 @@ impl Parse for ExceptionVectorTableParams {
 /// ```text
 /// [target.aarch64-unknown-none]
 /// rustflags = [
-///     "-Clink-arg=--undefined=_vector_table",
-///     "-Clink-arg=--section-start=.vector_table=0x90000",
+///     "-Clink-arg=--undefined=_exception_vector_table",
+///     "-Clink-arg=--section-start=.exception_vector_table=0x90000",
 /// ]
 /// ```
 #[proc_macro]
@@ -280,10 +284,10 @@ pub fn exception_vector_table(item: TokenStream) -> TokenStream {
     );
 
     let tokens = quote! {
-        #[link_section = ".vector_table"]
+        #[link_section = ".exception_vector_table"]
         #[no_mangle]
         #[naked]
-        unsafe extern "C" fn _vector_table() -> ! {
+        unsafe extern "C" fn _exception_vector_table() -> ! {
             core::arch::asm!(#vector_table_code, options(noreturn))
         }
     };
