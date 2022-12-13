@@ -303,7 +303,7 @@ pub fn read_level(pin: u32) -> Result<Level, Error> {
 }
 
 /// Enables an event type for a pin.
-pub fn set_event(pin: u32, event: Event) -> Result<(), Error> {
+pub fn enable_event(pin: u32, event: Event) -> Result<(), Error> {
     if pin >= NPINS {
         return Err(Error::InvalidGpioPin(pin));
     }
@@ -321,7 +321,33 @@ pub fn set_event(pin: u32, event: Event) -> Result<(), Error> {
     let enable_reg = unsafe { mmio::read(addr) };
 
     // Enable pin event.
-    unsafe { mmio::write(addr, enable_reg | (1 << (pin % 32))) };
+    let mask = 1 << (pin % 32);
+    unsafe { mmio::write(addr, enable_reg | mask) };
+
+    Ok(())
+}
+
+/// Disables an event type for a pin.
+pub fn disable_event(pin: u32, event: Event) -> Result<(), Error> {
+    if pin >= NPINS {
+        return Err(Error::InvalidGpioPin(pin));
+    }
+
+    // Read the intial enable register value.
+    let n = (pin as usize) / 32;
+    let addr = match event {
+        Event::RisingEdge => GPREN_BASE + n * 4,
+        Event::FallingEdge => GPFEN_BASE + n * 4,
+        Event::AsyncRisingEdge => GPAREN_BASE + n * 4,
+        Event::AsyncFallingEdge => GPAFEN_BASE + n * 4,
+        Event::PinHigh => GPHEN_BASE + n * 4,
+        Event::PinLow => GPLEN_BASE + n * 4,
+    };
+    let enable_reg = unsafe { mmio::read(addr) };
+
+    // Enable pin event.
+    let mask = 1 << (pin % 32);
+    unsafe { mmio::write(addr, enable_reg & !mask) };
 
     Ok(())
 }

@@ -45,7 +45,7 @@ extern "C" fn kernel_main() {
     // Configure GPIO pins.
     gpio::set_pull_state(GPIO_BUTTON, gpio::PullState::Up).unwrap();
     gpio::set_function(GPIO_BUTTON, gpio::Function::Input).unwrap();
-    gpio::set_event(GPIO_BUTTON, gpio::Event::FallingEdge).unwrap();
+    gpio::enable_event(GPIO_BUTTON, gpio::Event::FallingEdge).unwrap();
 
     // Mask all exceptions.
     unsafe { asm!("msr daifset, #0b1111") };

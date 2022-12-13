@@ -27,7 +27,7 @@ fn kernel_main() {
     // Configure button GPIO pin.
     gpio::set_pull_state(GPIO_BUTTON, gpio::PullState::Up).unwrap();
     gpio::set_function(GPIO_BUTTON, gpio::Function::Input).unwrap();
-    gpio::set_event(GPIO_BUTTON, gpio::Event::FallingEdge).unwrap();
+    gpio::enable_event(GPIO_BUTTON, gpio::Event::FallingEdge).unwrap();
 
     // Mask all interrupts.
     exceptions::mask(exceptions::Interrupt::Debug);
