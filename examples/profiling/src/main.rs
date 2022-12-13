@@ -7,7 +7,7 @@
 use core::arch::asm;
 use core::panic::PanicInfo;
 
-use expi::cpu::{self, pm, time};
+use expi::cpu::{exceptions, pm, time};
 use expi::uart;
 use expi::{print, println};
 
@@ -21,7 +21,7 @@ extern "C" fn kernel_main() {
 
     println!("expi");
 
-    println!("Current EL: {:x}", cpu::current_el());
+    println!("Current EL: {:x}", exceptions::current_el());
 
     pm::enable_cycle_counter();
 

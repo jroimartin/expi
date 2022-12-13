@@ -49,6 +49,18 @@ impl TryFrom<Interrupt> for HcrEl2Mask {
     }
 }
 
+/// Returns the current Exception Level.
+pub fn current_el() -> u64 {
+    unsafe {
+        let mut current_el: u64;
+        asm!(
+            "mrs {current_el}, CurrentEL",
+            current_el = out(reg) current_el,
+        );
+        (current_el & (0b11 << 2)) >> 2
+    }
+}
+
 /// Mask the provided interrupt.
 pub fn mask(int: Interrupt) {
     let mut daif: u64;
