@@ -13,7 +13,7 @@ flatelf target/aarch64-unknown-none/release/<kernel> \
     target/aarch64-unknown-none/release/kernel8.img
 ```
 
-Then, serve it via iPXE or copy it into a SD card. You also need the following
+Then, boot it via PXE or copy it into a SD card. You also need the following
 files from the raspios' boot partition:
 
 - start.elf
@@ -49,6 +49,24 @@ uart_2ndstage=1
 ```
 
 The UART will be available on pins [GPIO14 and GPIO15].
+
+## Network boot setup
+
+Run dnsmasq with the following configuration:
+
+```
+port=0
+interface=eth0
+dhcp-range=10.0.0.100,10.0.0.200
+log-dhcp
+enable-tftp
+tftp-root=/var/tftproot
+pxe-service=0,"Raspberry Pi Boot"
+```
+
+You might need to adjust the `interface` and `dhcp-range` parameters depending
+on your network setup. You also have to copy the files mentioned in the "Build"
+section into `/var/tftproot`.
 
 
 [flatelf]: https://github.com/jroimartin/flatelf/
