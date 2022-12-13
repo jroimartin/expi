@@ -184,8 +184,8 @@ pub fn set_pull_state(pin: u32, state: PullState) -> Result<(), Error> {
     // Write to GPPUDCLKn to clock the control signal into the target GPIO
     // pad.
     let n = (pin as usize) / 32;
-    let reg = 1 << (pin % 32);
     let addr = GPPUDCLK_BASE + n * 4;
+    let reg = 1 << (pin % 32);
     unsafe { mmio::write(addr, reg) };
 
     // Wait at least 150 cycles. This provides the required hold time for
@@ -318,11 +318,11 @@ pub fn enable_event(pin: u32, event: Event) -> Result<(), Error> {
         Event::PinHigh => GPHEN_BASE + n * 4,
         Event::PinLow => GPLEN_BASE + n * 4,
     };
-    let enable_reg = unsafe { mmio::read(addr) };
+    let reg = unsafe { mmio::read(addr) };
 
     // Enable pin event.
     let mask = 1 << (pin % 32);
-    unsafe { mmio::write(addr, enable_reg | mask) };
+    unsafe { mmio::write(addr, reg | mask) };
 
     Ok(())
 }
@@ -343,33 +343,25 @@ pub fn disable_event(pin: u32, event: Event) -> Result<(), Error> {
         Event::PinHigh => GPHEN_BASE + n * 4,
         Event::PinLow => GPLEN_BASE + n * 4,
     };
-    let enable_reg = unsafe { mmio::read(addr) };
+    let reg = unsafe { mmio::read(addr) };
 
     // Enable pin event.
     let mask = 1 << (pin % 32);
-    unsafe { mmio::write(addr, enable_reg & !mask) };
+    unsafe { mmio::write(addr, reg & !mask) };
 
     Ok(())
 }
 
-/// Clear the event status of a set of GPIO pins.
-pub fn clear_events(pins: &[u32]) -> Result<(), Error> {
-    // Precompute the final register values.
-    let mut regs = [0u32; 2];
-    for &pin in pins {
-        if pin >= NPINS {
-            return Err(Error::InvalidGpioPin(pin));
-        }
-
-        let n = (pin as usize) / 32;
-        regs[n] |= 1 << (pin % 32)
+/// Clear the event status of a GPIO pin.
+pub fn clear_event(pin: u32) -> Result<(), Error> {
+    if pin >= NPINS {
+        return Err(Error::InvalidGpioPin(pin));
     }
 
-    // Write registers.
-    for (i, &reg) in regs.iter().enumerate() {
-        let addr = GPEDS_BASE + i * 4;
-        unsafe { mmio::write(addr, reg) };
-    }
+    let n = (pin as usize) / 32;
+    let addr = GPEDS_BASE + n * 4;
+    let reg = 1 << (pin % 32);
+    unsafe { mmio::write(addr, reg) };
 
     Ok(())
 }

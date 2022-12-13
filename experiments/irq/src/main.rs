@@ -76,7 +76,7 @@ extern "C" fn kernel_main() {
 #[no_mangle]
 extern "C" fn irq_handler() {
     print_irq_pending_regs();
-    gpio::clear_events(&[GPIO_BUTTON]).unwrap();
+    gpio::clear_event(GPIO_BUTTON).unwrap();
     print_irq_pending_regs();
 }
 

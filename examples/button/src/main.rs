@@ -58,7 +58,7 @@ fn irq_handler() {
     /// Stores if the LED is on.
     static mut LED_ON: bool = false;
 
-    gpio::clear_events(&[GPIO_BUTTON]).unwrap();
+    gpio::clear_event(GPIO_BUTTON).unwrap();
 
     unsafe {
         if LED_ON {
