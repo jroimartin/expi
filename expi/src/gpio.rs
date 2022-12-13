@@ -107,7 +107,7 @@ impl From<Function> for u32 {
 }
 
 /// Pin level.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Level {
     /// Low level.
     Low,
@@ -136,7 +136,7 @@ impl From<bool> for Level {
 }
 
 /// Event status.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum EventStatus {
     /// The programmed event has been detected.
     Detected,
