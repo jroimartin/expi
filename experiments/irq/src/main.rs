@@ -14,7 +14,7 @@ use expi::uart;
 use expi::{print, println};
 
 /// The button is connected to GPIO16.
-const GPIO_BUTTON: u32 = 16;
+const GPIO_BUTTON: usize = 16;
 
 /// Base address of the BCM2837 interrupt controller.
 const IRQ_BASE: usize = 0xb000;

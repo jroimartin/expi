@@ -13,7 +13,7 @@ use expi::uart;
 use expi::{print, println};
 
 /// The LED is connected to GPIO26.
-const GPIO_LED: u32 = 26;
+const GPIO_LED: usize = 26;
 
 /// Kernel main function.
 #[no_mangle]

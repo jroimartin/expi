@@ -10,7 +10,7 @@ use expi::println;
 use expi_macros::entrypoint;
 
 /// The LED is connected to GPIO26.
-const GPIO_LED: u32 = 26;
+const GPIO_LED: usize = 26;
 
 /// Kernel main function.
 #[entrypoint]

@@ -43,7 +43,7 @@ pub enum Error {
     InvalidArg,
 
     /// Invalid GPIO pin.
-    InvalidGpioPin(u32),
+    InvalidGpioPin(usize),
 
     /// Invalid GPU interrupt.
     InvalidGpuInterrupt(u32),

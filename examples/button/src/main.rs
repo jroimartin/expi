@@ -11,10 +11,10 @@ use expi::println;
 use expi_macros::{entrypoint, exception_handler, exception_vector_table};
 
 /// The LED is connected to GPIO26.
-const GPIO_LED: u32 = 26;
+const GPIO_LED: usize = 26;
 
 /// The button is connected to GPIO16.
-const GPIO_BUTTON: u32 = 16;
+const GPIO_BUTTON: usize = 16;
 
 /// Kernel main function.
 #[entrypoint]
