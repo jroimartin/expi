@@ -6,3 +6,4 @@ publish = false
 
 [dependencies]
 expi = { path = "../../expi" }
+expi_macros = { path = "../../expi_macros" }
