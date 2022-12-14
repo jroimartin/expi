@@ -2,9 +2,10 @@
 
 use core::arch::asm;
 
-use crate::Error;
+use crate::{Error, Result};
 
 /// Interrupt types.
+#[derive(Debug, Copy, Clone)]
 pub enum Interrupt {
     /// Watchpoint, Breakpoint, and Software Step exceptions.
     Debug,
@@ -39,7 +40,7 @@ struct HcrEl2Mask(u64);
 impl TryFrom<Interrupt> for HcrEl2Mask {
     type Error = Error;
 
-    fn try_from(int: Interrupt) -> Result<HcrEl2Mask, Self::Error> {
+    fn try_from(int: Interrupt) -> Result<HcrEl2Mask> {
         match int {
             Interrupt::SError => Ok(HcrEl2Mask(1 << 5)),
             Interrupt::Irq => Ok(HcrEl2Mask(1 << 4)),
@@ -89,7 +90,7 @@ pub fn set_vector_table(address: usize) {
 }
 
 /// Enables physical routing for the provided interrupt.
-pub fn enable_routing(int: Interrupt) -> Result<(), Error> {
+pub fn enable_routing(int: Interrupt) -> Result<()> {
     let mut hcr_el2: u64;
     unsafe { asm!("mrs {hcr_el2}, hcr_el2", hcr_el2 = out(reg) hcr_el2) };
 

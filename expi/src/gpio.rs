@@ -6,7 +6,7 @@
 
 use crate::cpu::time;
 use crate::mmio;
-use crate::Error;
+use crate::{Error, Result};
 
 /// Base address of GPIO.
 ///
@@ -66,6 +66,7 @@ const GPPUDCLK_BASE: usize = GPIO_BASE + 0x98;
 pub const NPINS: usize = 54;
 
 /// Pull state (pull-up/pull-down) for a GPIO pin.
+#[derive(Debug, Copy, Clone)]
 pub enum PullState {
     /// Disable pull-up/down.
     Off,
@@ -88,12 +89,13 @@ impl From<PullState> for u32 {
 }
 
 /// Alternate function number.
+#[derive(Debug, Copy, Clone)]
 pub struct AltFcnNum(u32);
 
 impl TryFrom<u32> for AltFcnNum {
     type Error = Error;
 
-    fn try_from(num: u32) -> Result<AltFcnNum, Error> {
+    fn try_from(num: u32) -> Result<AltFcnNum> {
         match num {
             0 => Ok(AltFcnNum(0b100)),
             1 => Ok(AltFcnNum(0b101)),
@@ -107,6 +109,7 @@ impl TryFrom<u32> for AltFcnNum {
 }
 
 /// Pin function.
+#[derive(Debug, Copy, Clone)]
 pub enum Function {
     /// Input pin.
     Input,
@@ -187,6 +190,7 @@ impl From<bool> for EventStatus {
 }
 
 /// Pin event.
+#[derive(Debug, Copy, Clone)]
 pub enum Event {
     /// Rising edge transition using synchronous edge detection. The input
     /// signal is sampled using the system clock and then it is looking for a
@@ -218,7 +222,7 @@ pub enum Event {
 }
 
 /// Configures the pull state (pull-up/pull-down) of a GPIO pin.
-pub fn set_pull_state(pin: usize, state: PullState) -> Result<(), Error> {
+pub fn set_pull_state(pin: usize, state: PullState) -> Result<()> {
     if pin >= NPINS {
         return Err(Error::InvalidGpioPin(pin));
     }
@@ -251,7 +255,7 @@ pub fn set_pull_state(pin: usize, state: PullState) -> Result<(), Error> {
 }
 
 /// Configures the operation of a GPIO pin.
-pub fn set_function(pin: usize, fcn: Function) -> Result<(), Error> {
+pub fn set_function(pin: usize, fcn: Function) -> Result<()> {
     if pin >= NPINS {
         return Err(Error::InvalidGpioPin(pin));
     }
@@ -271,7 +275,7 @@ pub fn set_function(pin: usize, fcn: Function) -> Result<(), Error> {
 }
 
 /// Sets a set of GPIO pins.
-pub fn set(pins: &[usize]) -> Result<(), Error> {
+pub fn set(pins: &[usize]) -> Result<()> {
     // Precompute the final register values.
     let mut regs = [0u32; 2];
     for &pin in pins {
@@ -293,7 +297,7 @@ pub fn set(pins: &[usize]) -> Result<(), Error> {
 }
 
 /// Clears a set of GPIO pins.
-pub fn clear(pins: &[usize]) -> Result<(), Error> {
+pub fn clear(pins: &[usize]) -> Result<()> {
     // Precompute the final register values.
     let mut regs = [0u32; 2];
     for &pin in pins {
@@ -315,7 +319,7 @@ pub fn clear(pins: &[usize]) -> Result<(), Error> {
 }
 
 /// Returns the value of all the GPIO pins.
-pub fn read_levels() -> Result<[Level; NPINS], Error> {
+pub fn read_levels() -> Result<[Level; NPINS]> {
     // Read the initial register values.
     let mut regs = [0u32; 2];
     for (i, reg) in regs.iter_mut().enumerate() {
@@ -334,7 +338,7 @@ pub fn read_levels() -> Result<[Level; NPINS], Error> {
 }
 
 /// Returns the value of a GPIO pin.
-pub fn read_level(pin: usize) -> Result<Level, Error> {
+pub fn read_level(pin: usize) -> Result<Level> {
     if pin >= NPINS {
         return Err(Error::InvalidGpioPin(pin));
     }
@@ -344,7 +348,7 @@ pub fn read_level(pin: usize) -> Result<Level, Error> {
 }
 
 /// Enables an event type for a pin.
-pub fn enable_event(pin: usize, event: Event) -> Result<(), Error> {
+pub fn enable_event(pin: usize, event: Event) -> Result<()> {
     if pin >= NPINS {
         return Err(Error::InvalidGpioPin(pin));
     }
@@ -369,7 +373,7 @@ pub fn enable_event(pin: usize, event: Event) -> Result<(), Error> {
 }
 
 /// Disables an event type for a pin.
-pub fn disable_event(pin: usize, event: Event) -> Result<(), Error> {
+pub fn disable_event(pin: usize, event: Event) -> Result<()> {
     if pin >= NPINS {
         return Err(Error::InvalidGpioPin(pin));
     }
@@ -394,7 +398,7 @@ pub fn disable_event(pin: usize, event: Event) -> Result<(), Error> {
 }
 
 /// Clear the event status of a GPIO pin.
-pub fn clear_event(pin: usize) -> Result<(), Error> {
+pub fn clear_event(pin: usize) -> Result<()> {
     if pin >= NPINS {
         return Err(Error::InvalidGpioPin(pin));
     }
@@ -408,7 +412,7 @@ pub fn clear_event(pin: usize) -> Result<(), Error> {
 }
 
 /// Returns the event status of all the GPIO pins.
-pub fn read_events() -> Result<[EventStatus; NPINS], Error> {
+pub fn read_events() -> Result<[EventStatus; NPINS]> {
     // Read the initial register values.
     let mut regs = [0u32; 2];
     for (i, reg) in regs.iter_mut().enumerate() {
@@ -428,7 +432,7 @@ pub fn read_events() -> Result<[EventStatus; NPINS], Error> {
 
 /// Returns the event status of a GPIO pin. If `true`, the programmed event
 /// type has been detected.
-pub fn read_event(pin: usize) -> Result<EventStatus, Error> {
+pub fn read_event(pin: usize) -> Result<EventStatus> {
     if pin >= NPINS {
         return Err(Error::InvalidGpioPin(pin));
     }

@@ -6,7 +6,7 @@
 //! [Mailboxes]: https://github.com/raspberrypi/firmware/wiki/Mailboxes
 
 use crate::mmio;
-use crate::Error;
+use crate::{Error, Result};
 
 /// Base address of the mailbox.
 ///
@@ -56,7 +56,7 @@ struct MboxBuffer([u32; 8192]);
 static mut MBOX_BUFFER: MboxBuffer = MboxBuffer([0u32; 8192]);
 
 /// Sets the UART clock frequency to `freq` Hz.
-pub fn set_uartclk_freq(freq: u32) -> Result<(), Error> {
+pub fn set_uartclk_freq(freq: u32) -> Result<()> {
     let tags: [u32; 6] = [
         0x38002, // "Set clock rate" tag id.
         12,      // Value buffer length.
@@ -70,7 +70,7 @@ pub fn set_uartclk_freq(freq: u32) -> Result<(), Error> {
 }
 
 /// Returns the temperature of the SoC in thousandths of a degree C.
-pub fn get_temperature() -> Result<u32, Error> {
+pub fn get_temperature() -> Result<u32> {
     let tags: [u32; 5] = [
         0x30006, // "Get temperature" tag id.
         8,       // Value buffer length.
@@ -87,7 +87,7 @@ pub fn get_temperature() -> Result<u32, Error> {
 }
 
 /// Returns `(base, size)` of ARM memory.
-pub fn get_arm_memory() -> Result<(u32, u32), Error> {
+pub fn get_arm_memory() -> Result<(u32, u32)> {
     let tags: [u32; 5] = [
         0x10005, // "Get ARM memory" tag id.
         8,       // Value buffer length.
@@ -104,7 +104,7 @@ pub fn get_arm_memory() -> Result<(u32, u32), Error> {
 }
 
 /// Issue a new mailbox request with the provided concatenated tags.
-pub fn process_request(tags: &[u32]) -> Result<(), Error> {
+pub fn process_request(tags: &[u32]) -> Result<()> {
     unsafe {
         // There must be room for the request, the headers values and the end
         // tag.

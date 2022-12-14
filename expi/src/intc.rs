@@ -6,7 +6,7 @@
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 
 use crate::mmio;
-use crate::Error;
+use crate::{Error, Result};
 
 /// Base address of the interrupt controller.
 ///
@@ -37,7 +37,7 @@ const INTEN_BASE: usize = INTC_BASE + 0x10;
 const INTDIS_BASE: usize = INTC_BASE + 0x1c;
 
 /// Interrupt register.
-pub enum Reg {
+enum Reg {
     /// Basic interrupt register.
     Basic,
 
@@ -80,6 +80,7 @@ impl From<Reg> for RegPendingIdx {
 struct RegBit(Reg, u32);
 
 /// BCM2837 peripherals.
+#[derive(Debug, Copy, Clone)]
 pub enum Peripheral {
     /// Aux.
     Aux,
@@ -142,7 +143,7 @@ pub enum Peripheral {
 impl TryFrom<Peripheral> for RegBit {
     type Error = Error;
 
-    fn try_from(peripheral: Peripheral) -> Result<RegBit, Self::Error> {
+    fn try_from(peripheral: Peripheral) -> Result<RegBit> {
         let reg_bit = match peripheral {
             Peripheral::Aux => RegBit(Reg::Gpu1, 29),
             Peripheral::I2cSpiSlv => RegBit(Reg::Gpu2, 11),
@@ -178,7 +179,7 @@ struct FIQSource(u32);
 impl TryFrom<Peripheral> for FIQSource {
     type Error = Error;
 
-    fn try_from(peripheral: Peripheral) -> Result<FIQSource, Self::Error> {
+    fn try_from(peripheral: Peripheral) -> Result<FIQSource> {
         let fiq_source = match peripheral {
             Peripheral::Aux => FIQSource(29),
             Peripheral::I2cSpiSlv => FIQSource(43),
@@ -208,7 +209,7 @@ impl TryFrom<Peripheral> for FIQSource {
 }
 
 /// Enables interrupts for the provided peripheral.
-pub fn enable(peripheral: Peripheral) -> Result<(), Error> {
+pub fn enable(peripheral: Peripheral) -> Result<()> {
     let reg_bit = RegBit::try_from(peripheral)?;
     let reg_idx = RegCtlIdx::from(reg_bit.0);
     let addr = INTEN_BASE + reg_idx.0 * 4;
@@ -217,7 +218,7 @@ pub fn enable(peripheral: Peripheral) -> Result<(), Error> {
 }
 
 /// Disables interrupts for the provided peripheral.
-pub fn disable(peripheral: Peripheral) -> Result<(), Error> {
+pub fn disable(peripheral: Peripheral) -> Result<()> {
     let reg_bit = RegBit::try_from(peripheral)?;
     let reg_idx = RegCtlIdx::from(reg_bit.0);
     let addr = INTDIS_BASE + reg_idx.0 * 4;
@@ -226,7 +227,7 @@ pub fn disable(peripheral: Peripheral) -> Result<(), Error> {
 }
 
 /// Returns if a given peripheral has a pending interrupt.
-pub fn pending(peripheral: Peripheral) -> Result<bool, Error> {
+pub fn pending(peripheral: Peripheral) -> Result<bool> {
     let reg_bit = RegBit::try_from(peripheral)?;
     let reg_idx = RegPendingIdx::from(reg_bit.0);
     let addr = INTPEND_BASE + reg_idx.0 * 4;
@@ -236,7 +237,12 @@ pub fn pending(peripheral: Peripheral) -> Result<bool, Error> {
 
 /// Select which interrupt source can generate a FIQ to the ARM. Only a single
 /// interrupt can be selected.
-pub fn enable_fiq(peripheral: Peripheral) -> Result<(), Error> {
+pub fn enable_fiq(peripheral: Peripheral) -> Result<()> {
+    // Make sure the IRQ is disabled for the peripheral. Otherwise, both IRQ
+    // and FIQ would be triggered.
+    disable(peripheral)?;
+
+    // Enable FIQ.
     let fiq_source = FIQSource::try_from(peripheral)?;
     let reg = (1 << 7) | (fiq_source.0 & 0b11_1111);
     unsafe { mmio::write(FIQCTL, reg) };

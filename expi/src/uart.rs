@@ -11,7 +11,7 @@
 use crate::gpio::{self, PullState};
 use crate::mailbox;
 use crate::mmio;
-use crate::Error;
+use crate::Result;
 
 /// Base address of the PL011 UART.
 ///
@@ -59,7 +59,7 @@ const UARTIMSC: usize = UART_BASE + 0x38;
 const UARTICR: usize = UART_BASE + 0x44;
 
 /// Initializes the UART.
-pub fn init() -> Result<(), Error> {
+pub fn init() -> Result<()> {
     unsafe {
         // Mask all UART interrupts. RIMIM, DCDMIM and DSRMIM are unsupported,
         // so we write 0.

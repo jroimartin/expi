@@ -37,7 +37,7 @@ pub mod print;
 pub mod uart;
 
 /// Expi error.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Error {
     /// At least one of the arguments provided to the function is not valid.
     InvalidArg,
@@ -48,7 +48,7 @@ pub enum Error {
     /// Invalid Alternate Function number.
     InvalidAltFcnNum(u32),
 
-    /// Invalid GPU interrupt.
+    /// Invalid GPU interrupt number.
     InvalidGpuInterrupt(u32),
 
     /// The size of the provided output parameter is not valid.
@@ -60,3 +60,6 @@ pub enum Error {
     /// There is not enough room in the mailbox buffer to allocate the request.
     MailboxRequestIsTooBig,
 }
+
+/// Expi result.
+pub type Result<T> = core::result::Result<T, Error>;
