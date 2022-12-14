@@ -6,8 +6,8 @@
 
 use expi::cpu::exceptions::{self, Interrupt};
 use expi::cpu::time;
-use expi::gpio::{self, Event, Function, Pin, PullState};
-use expi::intc;
+use expi::gpio::{Event, Function, Pin, PullState};
+use expi::intc::{self, Peripheral};
 use expi::println;
 use expi_macros::{entrypoint, exception_handler, exception_vector_table};
 
@@ -22,16 +22,15 @@ const GPIO_BUTTON: usize = 16;
 fn kernel_main() {
     println!("expi");
 
-    let pin_led = Pin::try_from(GPIO_LED).unwrap();
-    let pin_button = Pin::try_from(GPIO_BUTTON).unwrap();
-
     // Configure LED GPIO pin.
-    gpio::set_function(pin_led, Function::Output);
+    let pin_led = Pin::try_from(GPIO_LED).unwrap();
+    pin_led.set_function(Function::Output);
 
     // Configure button GPIO pin.
-    gpio::set_pull_state(pin_button, PullState::Up);
-    gpio::set_function(pin_button, Function::Input);
-    gpio::enable_event(pin_button, Event::FallingEdge);
+    let pin_button = Pin::try_from(GPIO_BUTTON).unwrap();
+    pin_button.set_pull_state(PullState::Up);
+    pin_button.set_function(Function::Input);
+    pin_button.enable_event(Event::FallingEdge);
 
     // Mask all interrupts.
     exceptions::mask(Interrupt::Debug);
@@ -49,7 +48,7 @@ fn kernel_main() {
     exceptions::unmask(Interrupt::Irq);
 
     // Enable GPIO interrupts.
-    intc::enable(intc::Peripheral::GPIO).unwrap();
+    intc::enable(Peripheral::GPIO);
 
     loop {
         time::delay(1_000_000);
@@ -62,16 +61,15 @@ fn irq_handler() {
     /// Stores if the LED is on.
     static mut LED_ON: bool = false;
 
-    let pin_led = Pin::try_from(GPIO_LED).unwrap();
     let pin_button = Pin::try_from(GPIO_BUTTON).unwrap();
+    pin_button.clear_event();
 
-    gpio::clear_event(pin_button);
-
+    let pin_led = Pin::try_from(GPIO_LED).unwrap();
     unsafe {
         if LED_ON {
-            gpio::clear(&[pin_led]);
+            pin_led.clear();
         } else {
-            gpio::set(&[pin_led]);
+            pin_led.set();
         }
 
         LED_ON = !LED_ON;

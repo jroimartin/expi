@@ -8,7 +8,7 @@
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 //! [PL011 Technical Reference Manual]: https://static6.arrow.com/aropdfconversion/32f6a7175ece91477c63bc40811c02e077718861/ddi0183.pdf
 
-use crate::gpio::{self, PullState};
+use crate::gpio::{Pin, PullState};
 use crate::mailbox;
 use crate::mmio;
 use crate::Result;
@@ -82,8 +82,10 @@ pub fn init() -> Result<()> {
         mmio::write(UARTCR, 0);
 
         // Disable pull-up/down in pins 14 (TX) and 15 (RX).
-        gpio::set_pull_state(14.try_into()?, PullState::Off);
-        gpio::set_pull_state(15.try_into()?, PullState::Off);
+        let pin_tx = Pin::try_from(14)?;
+        pin_tx.set_pull_state(PullState::Off);
+        let pin_rx = Pin::try_from(15)?;
+        pin_rx.set_pull_state(PullState::Off);
 
         // Set UART clock frequency to 3MHz.
         mailbox::set_uartclk_freq(3_000_000)?;

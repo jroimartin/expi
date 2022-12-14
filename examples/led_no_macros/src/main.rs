@@ -8,7 +8,7 @@ use core::arch::asm;
 use core::panic::PanicInfo;
 
 use expi::cpu::time;
-use expi::gpio::{self, Function, Pin};
+use expi::gpio::{Function, Pin};
 use expi::uart;
 use expi::{print, println};
 
@@ -26,12 +26,11 @@ extern "C" fn kernel_main() {
     println!("expi");
 
     let pin_led = Pin::try_from(GPIO_LED).unwrap();
-
-    gpio::set_function(pin_led, Function::Output);
+    pin_led.set_function(Function::Output);
     loop {
-        gpio::set(&[pin_led]);
+        pin_led.set();
         time::delay(1_000_000);
-        gpio::clear(&[pin_led]);
+        pin_led.clear();
         time::delay(1_000_000);
     }
 }

@@ -36,48 +36,20 @@ const INTEN_BASE: usize = INTC_BASE + 0x10;
 /// Base address of the interrupt disable registers.
 const INTDIS_BASE: usize = INTC_BASE + 0x1c;
 
-/// Interrupt register.
-enum Reg {
-    /// Basic interrupt register.
-    Basic,
+/// Represents a GPU interrupt.
+#[derive(Debug, Copy, Clone)]
+pub struct GpuIrq(u32);
 
-    /// GPU interrupt register 1.
-    Gpu1,
+impl TryFrom<u32> for GpuIrq {
+    type Error = Error;
 
-    /// GPU interrupt register 2.
-    Gpu2,
-}
-
-/// Index of an interrupt control register (i.e. interrupt enable/disable
-/// register).
-struct RegCtlIdx(usize);
-
-impl From<Reg> for RegCtlIdx {
-    fn from(reg: Reg) -> RegCtlIdx {
-        match reg {
-            Reg::Gpu1 => RegCtlIdx(0),
-            Reg::Gpu2 => RegCtlIdx(1),
-            Reg::Basic => RegCtlIdx(2),
+    fn try_from(irq: u32) -> Result<GpuIrq> {
+        if irq > 63 {
+            return Err(Error::InvalidGpuIrq(irq));
         }
+        Ok(GpuIrq(irq))
     }
 }
-
-/// Index of a pending register.
-struct RegPendingIdx(usize);
-
-impl From<Reg> for RegPendingIdx {
-    fn from(reg: Reg) -> RegPendingIdx {
-        match reg {
-            Reg::Basic => RegPendingIdx(0),
-            Reg::Gpu1 => RegPendingIdx(1),
-            Reg::Gpu2 => RegPendingIdx(2),
-        }
-    }
-}
-
-/// Provides the register and bit position required to configure a given
-/// peripheral.
-struct RegBit(Reg, u32);
 
 /// BCM2837 peripherals.
 #[derive(Debug, Copy, Clone)]
@@ -137,14 +109,55 @@ pub enum Peripheral {
     IllegalAccess2,
 
     /// Generic GPU interrupt.
-    Gpu(u32),
+    Gpu(GpuIrq),
 }
 
-impl TryFrom<Peripheral> for RegBit {
-    type Error = Error;
+/// Interrupt register.
+enum Reg {
+    /// Basic interrupt register.
+    Basic,
 
-    fn try_from(peripheral: Peripheral) -> Result<RegBit> {
-        let reg_bit = match peripheral {
+    /// GPU interrupt register 1.
+    Gpu1,
+
+    /// GPU interrupt register 2.
+    Gpu2,
+}
+
+/// Index of an interrupt control register (i.e. interrupt enable/disable
+/// register).
+struct RegCtlIdx(usize);
+
+impl From<Reg> for RegCtlIdx {
+    fn from(reg: Reg) -> RegCtlIdx {
+        match reg {
+            Reg::Gpu1 => RegCtlIdx(0),
+            Reg::Gpu2 => RegCtlIdx(1),
+            Reg::Basic => RegCtlIdx(2),
+        }
+    }
+}
+
+/// Index of a pending register.
+struct RegPendingIdx(usize);
+
+impl From<Reg> for RegPendingIdx {
+    fn from(reg: Reg) -> RegPendingIdx {
+        match reg {
+            Reg::Basic => RegPendingIdx(0),
+            Reg::Gpu1 => RegPendingIdx(1),
+            Reg::Gpu2 => RegPendingIdx(2),
+        }
+    }
+}
+
+/// Provides the register and bit position required to configure a given
+/// peripheral.
+struct RegBit(Reg, u32);
+
+impl From<Peripheral> for RegBit {
+    fn from(peripheral: Peripheral) -> RegBit {
+        match peripheral {
             Peripheral::Aux => RegBit(Reg::Gpu1, 29),
             Peripheral::I2cSpiSlv => RegBit(Reg::Gpu2, 11),
             Peripheral::Pwa0 => RegBit(Reg::Gpu2, 13),
@@ -163,24 +176,21 @@ impl TryFrom<Peripheral> for RegBit {
             Peripheral::Gpu1Halted => RegBit(Reg::Basic, 5),
             Peripheral::IllegalAccess1 => RegBit(Reg::Basic, 6),
             Peripheral::IllegalAccess2 => RegBit(Reg::Basic, 7),
-            Peripheral::Gpu(n) => match n {
-                0..=31 => RegBit(Reg::Gpu1, n),
-                32..=63 => RegBit(Reg::Gpu2, n - 32),
-                _ => return Err(Error::InvalidGpuInterrupt(n)),
+            Peripheral::Gpu(irq) => match irq.0 {
+                0..=31 => RegBit(Reg::Gpu1, irq.0),
+                32..=63 => RegBit(Reg::Gpu2, irq.0 - 32),
+                _ => unreachable!(),
             },
-        };
-        Ok(reg_bit)
+        }
     }
 }
 
 /// Represents an FIQ source.
 struct FIQSource(u32);
 
-impl TryFrom<Peripheral> for FIQSource {
-    type Error = Error;
-
-    fn try_from(peripheral: Peripheral) -> Result<FIQSource> {
-        let fiq_source = match peripheral {
+impl From<Peripheral> for FIQSource {
+    fn from(peripheral: Peripheral) -> FIQSource {
+        match peripheral {
             Peripheral::Aux => FIQSource(29),
             Peripheral::I2cSpiSlv => FIQSource(43),
             Peripheral::Pwa0 => FIQSource(45),
@@ -199,57 +209,50 @@ impl TryFrom<Peripheral> for FIQSource {
             Peripheral::Gpu1Halted => FIQSource(69),
             Peripheral::IllegalAccess1 => FIQSource(70),
             Peripheral::IllegalAccess2 => FIQSource(71),
-            Peripheral::Gpu(n) => match n {
-                0..=63 => FIQSource(n),
-                _ => return Err(Error::InvalidGpuInterrupt(n)),
-            },
-        };
-        Ok(fiq_source)
+            Peripheral::Gpu(n) => FIQSource(n.0),
+        }
     }
 }
 
 /// Enables interrupts for the provided peripheral.
-pub fn enable(peripheral: Peripheral) -> Result<()> {
-    let reg_bit = RegBit::try_from(peripheral)?;
+pub fn enable(peripheral: Peripheral) {
+    let reg_bit = RegBit::from(peripheral);
     let reg_idx = RegCtlIdx::from(reg_bit.0);
     let addr = INTEN_BASE + reg_idx.0 * 4;
     unsafe { mmio::write(addr, 1 << reg_bit.1) };
-    Ok(())
 }
 
 /// Disables interrupts for the provided peripheral.
-pub fn disable(peripheral: Peripheral) -> Result<()> {
-    let reg_bit = RegBit::try_from(peripheral)?;
+pub fn disable(peripheral: Peripheral) {
+    let reg_bit = RegBit::from(peripheral);
     let reg_idx = RegCtlIdx::from(reg_bit.0);
     let addr = INTDIS_BASE + reg_idx.0 * 4;
     unsafe { mmio::write(addr, 1 << reg_bit.1) };
-    Ok(())
-}
-
-/// Returns if a given peripheral has a pending interrupt.
-pub fn pending(peripheral: Peripheral) -> Result<bool> {
-    let reg_bit = RegBit::try_from(peripheral)?;
-    let reg_idx = RegPendingIdx::from(reg_bit.0);
-    let addr = INTPEND_BASE + reg_idx.0 * 4;
-    let reg = unsafe { mmio::read(addr) };
-    Ok(reg & (1 << reg_bit.1) != 0)
 }
 
 /// Select which interrupt source can generate a FIQ to the ARM. Only a single
 /// interrupt can be selected.
-pub fn enable_fiq(peripheral: Peripheral) -> Result<()> {
-    // Make sure the IRQ is disabled for the peripheral. Otherwise, both IRQ
-    // and FIQ would be triggered.
-    disable(peripheral)?;
+pub fn enable_fiq(peripheral: Peripheral) {
+    // Make sure the IRQ is disabled for the peripheral. Otherwise, both the
+    // IRQ and the FIQ would be triggered.
+    disable(peripheral);
 
     // Enable FIQ.
-    let fiq_source = FIQSource::try_from(peripheral)?;
+    let fiq_source = FIQSource::from(peripheral);
     let reg = (1 << 7) | (fiq_source.0 & 0b11_1111);
     unsafe { mmio::write(FIQCTL, reg) };
-    Ok(())
 }
 
 /// Disable FIQs.
 pub fn disable_fiq() {
     unsafe { mmio::write(FIQCTL, 0) };
+}
+
+/// Returns if a given peripheral has a pending interrupt.
+pub fn pending(peripheral: Peripheral) -> bool {
+    let reg_bit = RegBit::from(peripheral);
+    let reg_idx = RegPendingIdx::from(reg_bit.0);
+    let addr = INTPEND_BASE + reg_idx.0 * 4;
+    let reg = unsafe { mmio::read(addr) };
+    reg & (1 << reg_bit.1) != 0
 }

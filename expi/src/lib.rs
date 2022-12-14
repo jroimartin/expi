@@ -48,8 +48,8 @@ pub enum Error {
     /// Invalid Alternate Function number.
     InvalidAltFcnNum(u32),
 
-    /// Invalid GPU interrupt number.
-    InvalidGpuInterrupt(u32),
+    /// Invalid GPU IRQ.
+    InvalidGpuIrq(u32),
 
     /// The size of the provided output parameter is not valid.
     InvalidOutputSize,
