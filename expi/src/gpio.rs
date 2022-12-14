@@ -103,7 +103,7 @@ impl TryFrom<u32> for AltFcnNum {
             3 => Ok(AltFcnNum(0b111)),
             4 => Ok(AltFcnNum(0b011)),
             5 => Ok(AltFcnNum(0b010)),
-            n => Err(Error::InvalidAltFcnNum(n)),
+            n => Err(Error::InvalidAltFcn(n)),
         }
     }
 }

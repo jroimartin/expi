@@ -46,13 +46,13 @@ pub enum Error {
     InvalidGpioPin(usize),
 
     /// Invalid Alternate Function number.
-    InvalidAltFcnNum(u32),
+    InvalidAltFcn(u32),
 
-    /// Invalid GPU IRQ.
+    /// Invalid GPU IRQ number.
     InvalidGpuIrq(usize),
 
-    /// Not a GPU interrupt.
-    NotGpuIrq,
+    /// Unknown GPU interrupt.
+    UnknownGpuIrq,
 
     /// The size of the provided output parameter is not valid.
     InvalidOutputSize,

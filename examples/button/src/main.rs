@@ -51,7 +51,6 @@ fn kernel_main() {
     intc::enable(Source::GPIO);
 
     loop {
-        println!(".");
         time::delay(1_000_000);
     }
 }

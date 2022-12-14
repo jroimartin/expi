@@ -140,7 +140,7 @@ impl TryFrom<Source> for GpuIrq {
             Source::Pcm => GpuIrq(55),
             Source::Uart => GpuIrq(57),
             Source::Gpu(irq) => irq,
-            _ => return Err(Error::NotGpuIrq),
+            _ => return Err(Error::UnknownGpuIrq),
         };
         Ok(irq)
     }
