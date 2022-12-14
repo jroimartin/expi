@@ -326,12 +326,12 @@ impl Pin {
 
     /// Sets the pin.
     pub fn set(&self) {
-        set(&[self])
+        set(&[*self])
     }
 
     /// Clears the pin.
     pub fn clear(&self) {
-        clear(&[self])
+        clear(&[*self])
     }
 
     /// Returns the value of the pin.
@@ -349,7 +349,7 @@ impl Pin {
 }
 
 /// Sets a set of GPIO pins.
-pub fn set(pins: &[&Pin]) {
+pub fn set(pins: &[Pin]) {
     // Precompute the final register values.
     let mut regs = [0u32; 2];
     for pin in pins {
@@ -365,7 +365,7 @@ pub fn set(pins: &[&Pin]) {
 }
 
 /// Clears a set of GPIO pins.
-pub fn clear(pins: &[&Pin]) {
+pub fn clear(pins: &[Pin]) {
     // Precompute the final register values.
     let mut regs = [0u32; 2];
     for pin in pins {
