@@ -49,7 +49,10 @@ pub enum Error {
     InvalidAltFcnNum(u32),
 
     /// Invalid GPU IRQ.
-    InvalidGpuIrq(u32),
+    InvalidGpuIrq(usize),
+
+    /// Not a GPU interrupt.
+    NotGpuIrq,
 
     /// The size of the provided output parameter is not valid.
     InvalidOutputSize,

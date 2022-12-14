@@ -7,7 +7,7 @@
 use expi::cpu::exceptions::{self, Interrupt};
 use expi::cpu::time;
 use expi::gpio::{Event, Function, Pin, PullState};
-use expi::intc::{self, Peripheral};
+use expi::intc::{self, Source};
 use expi::println;
 use expi_macros::{entrypoint, exception_handler, exception_vector_table};
 
@@ -48,9 +48,10 @@ fn kernel_main() {
     exceptions::unmask(Interrupt::Irq);
 
     // Enable GPIO interrupts.
-    intc::enable(Peripheral::GPIO);
+    intc::enable(Source::GPIO);
 
     loop {
+        println!(".");
         time::delay(1_000_000);
     }
 }
@@ -58,6 +59,17 @@ fn kernel_main() {
 /// IRQ handler.
 #[exception_handler]
 fn irq_handler() {
+    let pending_basic = intc::pending_basic();
+    if pending_basic.pending_reg_2 {
+        let pending_gpu = intc::pending_gpu();
+        if intc::is_pending(&pending_gpu, Source::GPIO).unwrap() {
+            gpio_handler()
+        }
+    }
+}
+
+/// GPIO IRQ handler.
+fn gpio_handler() {
     /// Stores if the LED is on.
     static mut LED_ON: bool = false;
 

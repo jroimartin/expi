@@ -160,35 +160,6 @@ impl From<bool> for Level {
     }
 }
 
-/// Event status.
-#[derive(Debug, Copy, Clone)]
-pub enum EventStatus {
-    /// The programmed event has been detected.
-    Detected,
-
-    /// The event has not been detected.
-    Undetected,
-
-    /// Unknown level.
-    Unknown,
-}
-
-impl Default for EventStatus {
-    fn default() -> EventStatus {
-        EventStatus::Unknown
-    }
-}
-
-impl From<bool> for EventStatus {
-    fn from(status: bool) -> EventStatus {
-        if status {
-            EventStatus::Detected
-        } else {
-            EventStatus::Undetected
-        }
-    }
-}
-
 /// Pin event.
 #[derive(Debug, Copy, Clone)]
 pub enum Event {
@@ -342,7 +313,7 @@ impl Pin {
 
     /// Returns the event status of the pin. If `true`, the programmed event
     /// type has been detected.
-    pub fn read_event(&self) -> EventStatus {
+    pub fn read_event(&self) -> bool {
         let events = read_events();
         events[self.0]
     }
@@ -399,9 +370,9 @@ pub fn read_levels() -> [Level; NPINS] {
     levels
 }
 
-/// Returns the event status of all the GPIO pins. Index i corresponds to
-/// pin GPIOi.
-pub fn read_events() -> [EventStatus; NPINS] {
+/// Returns the event status of all the GPIO pins. If `true`, the programmed
+/// event type has been detected. Index i corresponds to pin GPIOi.
+pub fn read_events() -> [bool; NPINS] {
     // Read the initial register values.
     let mut regs = [0u32; 2];
     for (i, reg) in regs.iter_mut().enumerate() {
@@ -410,10 +381,10 @@ pub fn read_events() -> [EventStatus; NPINS] {
     }
 
     // Get event status.
-    let mut events = [EventStatus::default(); NPINS];
+    let mut events = [false; NPINS];
     for (i, event) in events.iter_mut().enumerate() {
         let n = i / 32;
-        *event = EventStatus::from(regs[n] & (1 << (i % 32)) != 0);
+        *event = regs[n] & (1 << (i % 32)) != 0;
     }
 
     events
