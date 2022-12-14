@@ -8,7 +8,7 @@ use core::arch::asm;
 use core::panic::PanicInfo;
 
 use expi::cpu::time;
-use expi::gpio;
+use expi::gpio::{self, Event, Function, Pin, PullState};
 use expi::mmio;
 use expi::uart;
 use expi::{print, println};
@@ -42,10 +42,12 @@ extern "C" fn kernel_main() {
     // Print banner.
     println!("expi");
 
+    let pin_button = Pin::try_from(GPIO_BUTTON).unwrap();
+
     // Configure GPIO pins.
-    gpio::set_pull_state(GPIO_BUTTON, gpio::PullState::Up).unwrap();
-    gpio::set_function(GPIO_BUTTON, gpio::Function::Input).unwrap();
-    gpio::enable_event(GPIO_BUTTON, gpio::Event::FallingEdge).unwrap();
+    gpio::set_pull_state(pin_button, PullState::Up);
+    gpio::set_function(pin_button, Function::Input);
+    gpio::enable_event(pin_button, Event::FallingEdge);
 
     // Mask all exceptions.
     unsafe { asm!("msr daifset, #0b1111") };
@@ -76,7 +78,7 @@ extern "C" fn kernel_main() {
 #[no_mangle]
 extern "C" fn irq_handler() {
     print_irq_pending_regs();
-    gpio::clear_event(GPIO_BUTTON).unwrap();
+    gpio::clear_event(GPIO_BUTTON.try_into().unwrap());
     print_irq_pending_regs();
 }
 

@@ -5,7 +5,7 @@
 #![no_main]
 
 use expi::cpu::time;
-use expi::gpio;
+use expi::gpio::{self, Function, Pin};
 use expi::println;
 use expi_macros::entrypoint;
 
@@ -17,11 +17,13 @@ const GPIO_LED: usize = 26;
 fn kernel_main() {
     println!("expi");
 
-    gpio::set_function(GPIO_LED, gpio::Function::Output).unwrap();
+    let pin_led = Pin::try_from(GPIO_LED).unwrap();
+
+    gpio::set_function(pin_led, Function::Output);
     loop {
-        gpio::set(&[GPIO_LED]).unwrap();
+        gpio::set(&[pin_led]);
         time::delay(1_000_000);
-        gpio::clear(&[GPIO_LED]).unwrap();
+        gpio::clear(&[pin_led]);
         time::delay(1_000_000);
     }
 }

@@ -4,8 +4,9 @@
 #![no_std]
 #![no_main]
 
-use expi::cpu::{exceptions, time};
-use expi::gpio;
+use expi::cpu::exceptions::{self, Interrupt};
+use expi::cpu::time;
+use expi::gpio::{self, Event, Function, Pin, PullState};
 use expi::intc;
 use expi::println;
 use expi_macros::{entrypoint, exception_handler, exception_vector_table};
@@ -21,28 +22,31 @@ const GPIO_BUTTON: usize = 16;
 fn kernel_main() {
     println!("expi");
 
+    let pin_led = Pin::try_from(GPIO_LED).unwrap();
+    let pin_button = Pin::try_from(GPIO_BUTTON).unwrap();
+
     // Configure LED GPIO pin.
-    gpio::set_function(GPIO_LED, gpio::Function::Output).unwrap();
+    gpio::set_function(pin_led, Function::Output);
 
     // Configure button GPIO pin.
-    gpio::set_pull_state(GPIO_BUTTON, gpio::PullState::Up).unwrap();
-    gpio::set_function(GPIO_BUTTON, gpio::Function::Input).unwrap();
-    gpio::enable_event(GPIO_BUTTON, gpio::Event::FallingEdge).unwrap();
+    gpio::set_pull_state(pin_button, PullState::Up);
+    gpio::set_function(pin_button, Function::Input);
+    gpio::enable_event(pin_button, Event::FallingEdge);
 
     // Mask all interrupts.
-    exceptions::mask(exceptions::Interrupt::Debug);
-    exceptions::mask(exceptions::Interrupt::SError);
-    exceptions::mask(exceptions::Interrupt::Irq);
-    exceptions::mask(exceptions::Interrupt::Fiq);
+    exceptions::mask(Interrupt::Debug);
+    exceptions::mask(Interrupt::SError);
+    exceptions::mask(Interrupt::Irq);
+    exceptions::mask(Interrupt::Fiq);
 
     // Enable pysical IRQ routing.
-    exceptions::enable_routing(exceptions::Interrupt::Irq).unwrap();
+    exceptions::enable_routing(Interrupt::Irq).unwrap();
 
     // Set vector table address.
     exceptions::set_vector_table(0x90000);
 
     // Unmask IRQ.
-    exceptions::unmask(exceptions::Interrupt::Irq);
+    exceptions::unmask(Interrupt::Irq);
 
     // Enable GPIO interrupts.
     intc::enable(intc::Peripheral::GPIO).unwrap();
@@ -58,13 +62,16 @@ fn irq_handler() {
     /// Stores if the LED is on.
     static mut LED_ON: bool = false;
 
-    gpio::clear_event(GPIO_BUTTON).unwrap();
+    let pin_led = Pin::try_from(GPIO_LED).unwrap();
+    let pin_button = Pin::try_from(GPIO_BUTTON).unwrap();
+
+    gpio::clear_event(pin_button);
 
     unsafe {
         if LED_ON {
-            gpio::clear(&[GPIO_LED]).unwrap();
+            gpio::clear(&[pin_led]);
         } else {
-            gpio::set(&[GPIO_LED]).unwrap();
+            gpio::set(&[pin_led]);
         }
 
         LED_ON = !LED_ON;

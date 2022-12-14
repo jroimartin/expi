@@ -65,6 +65,21 @@ const GPPUDCLK_BASE: usize = GPIO_BASE + 0x98;
 /// Number of GPIO pins.
 pub const NPINS: usize = 54;
 
+/// Represents a GPIO pin.
+#[derive(Debug, Copy, Clone)]
+pub struct Pin(usize);
+
+impl TryFrom<usize> for Pin {
+    type Error = Error;
+
+    fn try_from(pin: usize) -> Result<Pin> {
+        if pin >= NPINS {
+            return Err(Error::InvalidGpioPin(pin));
+        }
+        Ok(Pin(pin))
+    }
+}
+
 /// Pull state (pull-up/pull-down) for a GPIO pin.
 #[derive(Debug, Copy, Clone)]
 pub enum PullState {
@@ -222,11 +237,7 @@ pub enum Event {
 }
 
 /// Configures the pull state (pull-up/pull-down) of a GPIO pin.
-pub fn set_pull_state(pin: usize, state: PullState) -> Result<()> {
-    if pin >= NPINS {
-        return Err(Error::InvalidGpioPin(pin));
-    }
-
+pub fn set_pull_state(pin: Pin, state: PullState) {
     // Write to GPPUD to set the required control signal.
     unsafe { mmio::write(GPPUD, state.into()) };
 
@@ -236,9 +247,9 @@ pub fn set_pull_state(pin: usize, state: PullState) -> Result<()> {
 
     // Write to GPPUDCLKn to clock the control signal into the target GPIO
     // pad.
-    let n = pin / 32;
+    let n = pin.0 / 32;
     let addr = GPPUDCLK_BASE + n * 4;
-    let reg = 1 << (pin % 32);
+    let reg = 1 << (pin.0 % 32);
     unsafe { mmio::write(addr, reg) };
 
     // Wait at least 150 cycles. This provides the required hold time for
@@ -250,41 +261,29 @@ pub fn set_pull_state(pin: usize, state: PullState) -> Result<()> {
 
     // Write to GPPUDCLKn to remove the clock.
     unsafe { mmio::write(addr, 0) };
-
-    Ok(())
 }
 
 /// Configures the operation of a GPIO pin.
-pub fn set_function(pin: usize, fcn: Function) -> Result<()> {
-    if pin >= NPINS {
-        return Err(Error::InvalidGpioPin(pin));
-    }
-
+pub fn set_function(pin: Pin, fcn: Function) {
     // Read the initial register value.
-    let n = pin / 10;
+    let n = pin.0 / 10;
     let addr = GPFSEL_BASE + n * 4;
     let reg = unsafe { mmio::read(addr) };
 
     // Write register.
-    let shift = (pin % 10) * 3;
+    let shift = (pin.0 % 10) * 3;
     let mask: u32 = 0b111 << shift;
     let fcn: u32 = fcn.into();
     unsafe { mmio::write(addr, (reg & !mask) | (fcn << shift)) };
-
-    Ok(())
 }
 
 /// Sets a set of GPIO pins.
-pub fn set(pins: &[usize]) -> Result<()> {
+pub fn set(pins: &[Pin]) {
     // Precompute the final register values.
     let mut regs = [0u32; 2];
     for &pin in pins {
-        if pin >= NPINS {
-            return Err(Error::InvalidGpioPin(pin));
-        }
-
-        let n = pin / 32;
-        regs[n] |= 1 << (pin % 32)
+        let n = pin.0 / 32;
+        regs[n] |= 1 << (pin.0 % 32)
     }
 
     // Write registers.
@@ -292,21 +291,15 @@ pub fn set(pins: &[usize]) -> Result<()> {
         let addr = GPSET_BASE + i * 4;
         unsafe { mmio::write(addr, reg) };
     }
-
-    Ok(())
 }
 
 /// Clears a set of GPIO pins.
-pub fn clear(pins: &[usize]) -> Result<()> {
+pub fn clear(pins: &[Pin]) {
     // Precompute the final register values.
     let mut regs = [0u32; 2];
     for &pin in pins {
-        if pin >= NPINS {
-            return Err(Error::InvalidGpioPin(pin));
-        }
-
-        let n = pin / 32;
-        regs[n] |= 1 << (pin % 32)
+        let n = pin.0 / 32;
+        regs[n] |= 1 << (pin.0 % 32)
     }
 
     // Write registers.
@@ -314,12 +307,10 @@ pub fn clear(pins: &[usize]) -> Result<()> {
         let addr = GPCLR_BASE + i * 4;
         unsafe { mmio::write(addr, reg) };
     }
-
-    Ok(())
 }
 
-/// Returns the value of all the GPIO pins.
-pub fn read_levels() -> Result<[Level; NPINS]> {
+/// Returns the value of all the GPIO pins. Index i corresponds to pin GPIOi.
+pub fn read_levels() -> [Level; NPINS] {
     // Read the initial register values.
     let mut regs = [0u32; 2];
     for (i, reg) in regs.iter_mut().enumerate() {
@@ -334,27 +325,19 @@ pub fn read_levels() -> Result<[Level; NPINS]> {
         *level = Level::from(regs[n] & (1 << (i % 32)) != 0)
     }
 
-    Ok(levels)
+    levels
 }
 
 /// Returns the value of a GPIO pin.
-pub fn read_level(pin: usize) -> Result<Level> {
-    if pin >= NPINS {
-        return Err(Error::InvalidGpioPin(pin));
-    }
-
-    let levels = read_levels()?;
-    Ok(levels[pin])
+pub fn read_level(pin: Pin) -> Level {
+    let levels = read_levels();
+    levels[pin.0]
 }
 
 /// Enables an event type for a pin.
-pub fn enable_event(pin: usize, event: Event) -> Result<()> {
-    if pin >= NPINS {
-        return Err(Error::InvalidGpioPin(pin));
-    }
-
+pub fn enable_event(pin: Pin, event: Event) {
     // Read the intial enable register value.
-    let n = pin / 32;
+    let n = pin.0 / 32;
     let addr = match event {
         Event::RisingEdge => GPREN_BASE + n * 4,
         Event::FallingEdge => GPFEN_BASE + n * 4,
@@ -366,20 +349,14 @@ pub fn enable_event(pin: usize, event: Event) -> Result<()> {
     let reg = unsafe { mmio::read(addr) };
 
     // Enable pin event.
-    let mask = 1 << (pin % 32);
+    let mask = 1 << (pin.0 % 32);
     unsafe { mmio::write(addr, reg | mask) };
-
-    Ok(())
 }
 
 /// Disables an event type for a pin.
-pub fn disable_event(pin: usize, event: Event) -> Result<()> {
-    if pin >= NPINS {
-        return Err(Error::InvalidGpioPin(pin));
-    }
-
+pub fn disable_event(pin: Pin, event: Event) {
     // Read the intial enable register value.
-    let n = pin / 32;
+    let n = pin.0 / 32;
     let addr = match event {
         Event::RisingEdge => GPREN_BASE + n * 4,
         Event::FallingEdge => GPFEN_BASE + n * 4,
@@ -391,28 +368,21 @@ pub fn disable_event(pin: usize, event: Event) -> Result<()> {
     let reg = unsafe { mmio::read(addr) };
 
     // Enable pin event.
-    let mask = 1 << (pin % 32);
+    let mask = 1 << (pin.0 % 32);
     unsafe { mmio::write(addr, reg & !mask) };
-
-    Ok(())
 }
 
 /// Clear the event status of a GPIO pin.
-pub fn clear_event(pin: usize) -> Result<()> {
-    if pin >= NPINS {
-        return Err(Error::InvalidGpioPin(pin));
-    }
-
-    let n = pin / 32;
+pub fn clear_event(pin: Pin) {
+    let n = pin.0 / 32;
     let addr = GPEDS_BASE + n * 4;
-    let reg = 1 << (pin % 32);
+    let reg = 1 << (pin.0 % 32);
     unsafe { mmio::write(addr, reg) };
-
-    Ok(())
 }
 
-/// Returns the event status of all the GPIO pins.
-pub fn read_events() -> Result<[EventStatus; NPINS]> {
+/// Returns the event status of all the GPIO pins. Index i corresponds to
+/// pin GPIOi.
+pub fn read_events() -> [EventStatus; NPINS] {
     // Read the initial register values.
     let mut regs = [0u32; 2];
     for (i, reg) in regs.iter_mut().enumerate() {
@@ -427,16 +397,12 @@ pub fn read_events() -> Result<[EventStatus; NPINS]> {
         *event = EventStatus::from(regs[n] & (1 << (i % 32)) != 0);
     }
 
-    Ok(events)
+    events
 }
 
 /// Returns the event status of a GPIO pin. If `true`, the programmed event
 /// type has been detected.
-pub fn read_event(pin: usize) -> Result<EventStatus> {
-    if pin >= NPINS {
-        return Err(Error::InvalidGpioPin(pin));
-    }
-
-    let events = read_events()?;
-    Ok(events[pin])
+pub fn read_event(pin: Pin) -> EventStatus {
+    let events = read_events();
+    events[pin.0]
 }
