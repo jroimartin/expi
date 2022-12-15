@@ -7,7 +7,7 @@
 use expi::cpu::exceptions::{self, Interrupt};
 use expi::cpu::time;
 use expi::gpio::{Event, Function, Pin, PullState};
-use expi::intc::{self, Source};
+use expi::intc::{self, IrqSource};
 use expi::println;
 use expi_macros::{entrypoint, exception_handler, exception_vector_table};
 
@@ -48,7 +48,7 @@ fn kernel_main() {
     exceptions::unmask(Interrupt::Irq);
 
     // Enable GPIO interrupts.
-    intc::enable(Source::GPIO);
+    intc::enable(IrqSource::GPIO);
 
     loop {
         time::delay(1_000_000);
@@ -58,10 +58,10 @@ fn kernel_main() {
 /// IRQ handler.
 #[exception_handler]
 fn irq_handler() {
-    let pending_basic = intc::pending_basic();
-    if pending_basic.pending_reg_2 {
-        let pending_gpu = intc::pending_gpu();
-        if intc::is_pending(&pending_gpu, Source::GPIO).unwrap() {
+    let basic_status = intc::basic_status();
+    if basic_status.pending_reg_2() {
+        let gpu_status = intc::gpu_status();
+        if gpu_status.pending(IrqSource::GPIO).unwrap() {
             gpio_handler()
         }
     }

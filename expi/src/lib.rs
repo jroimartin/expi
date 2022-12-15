@@ -51,8 +51,8 @@ pub enum Error {
     /// Invalid GPU IRQ number.
     InvalidGpuIrq(usize),
 
-    /// Unknown GPU interrupt.
-    UnknownGpuIrq,
+    /// Not a GPU interrupt.
+    NotAGpuIrq,
 
     /// The size of the provided output parameter is not valid.
     InvalidOutputSize,
