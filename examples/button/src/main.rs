@@ -48,7 +48,7 @@ fn kernel_main() {
     exceptions::unmask(Interrupt::Irq);
 
     // Enable GPIO interrupts.
-    intc::enable(IrqSource::GPIO);
+    IrqSource::GPIO.enable();
 
     loop {
         time::delay(1_000_000);

@@ -54,9 +54,6 @@ pub enum Error {
     /// Not a GPU interrupt.
     NotAGpuIrq,
 
-    /// The size of the provided output parameter is not valid.
-    InvalidOutputSize,
-
     /// Mailbox request could not be processed.
     MailboxRequestFailed,
 

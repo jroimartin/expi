@@ -449,34 +449,35 @@ impl GpuStatus {
     }
 }
 
-/// Enables interrupts for the provided source.
-pub fn enable(src: IrqSource) {
-    let bit = IrqBit::from(src);
-    let idx = usize::from(bit.0);
-    let addr = INTEN_BASE + idx * 4;
-    unsafe { mmio::write(addr, 1 << bit.1) };
-}
+impl IrqSource {
+    /// Enables interrupts for the IRQ source.
+    pub fn enable(&self) {
+        let bit = IrqBit::from(*self);
+        let idx = usize::from(bit.0);
+        let addr = INTEN_BASE + idx * 4;
+        unsafe { mmio::write(addr, 1 << bit.1) };
+    }
 
-/// Disables interrupts for the provided source.
-pub fn disable(src: IrqSource) {
-    let bit = IrqBit::from(src);
-    let idx = usize::from(bit.0);
-    let addr = INTDIS_BASE + idx * 4;
-    unsafe { mmio::write(addr, 1 << bit.1) };
-}
+    /// Disables interrupts for the IRQ source.
+    pub fn disable(&self) {
+        let bit = IrqBit::from(*self);
+        let idx = usize::from(bit.0);
+        let addr = INTDIS_BASE + idx * 4;
+        unsafe { mmio::write(addr, 1 << bit.1) };
+    }
 
-/// Select which interrupt source can generate a FIQ to the ARM. Only a single
-/// interrupt can be selected.
-pub fn enable_fiq(src: IrqSource) {
-    // Make sure the IRQ is disabled for the source. Otherwise, both the IRQ
-    // and the FIQ would be triggered.
-    disable(src);
+    /// Enable FIQ for the source. Only a single interrupt can be selected.
+    pub fn enable_fiq(&self) {
+        // Make sure the IRQ is disabled for the source. Otherwise, both the
+        // IRQ and the FIQ would be triggered.
+        self.disable();
 
-    // Enable FIQ.
-    let fiq_src = FiqSource::from(src);
-    let fiq_mask = (fiq_src.0 as u32) & 0b11_1111;
-    let reg = (1 << 7) | fiq_mask;
-    unsafe { mmio::write(FIQCTL, reg) };
+        // Enable FIQ.
+        let fiq_src = FiqSource::from(*self);
+        let fiq_mask = (fiq_src.0 as u32) & 0b11_1111;
+        let reg = (1 << 7) | fiq_mask;
+        unsafe { mmio::write(FIQCTL, reg) };
+    }
 }
 
 /// Disable FIQs.
