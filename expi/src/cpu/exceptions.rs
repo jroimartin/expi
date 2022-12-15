@@ -106,6 +106,17 @@ impl Interrupt {
 
         unsafe { asm!("msr hcr_el2, {hcr_el2}", hcr_el2 = in(reg) hcr_el2) };
     }
+
+    /// Disables physical routing for the interrupt.
+    pub fn unroute(&self) {
+        let mut hcr_el2: u64;
+        unsafe { asm!("mrs {hcr_el2}, hcr_el2", hcr_el2 = out(reg) hcr_el2) };
+
+        let hcr_el2_mask = HcrEl2Mask::from(*self);
+        hcr_el2 &= !hcr_el2_mask.0;
+
+        unsafe { asm!("msr hcr_el2, {hcr_el2}", hcr_el2 = in(reg) hcr_el2) };
+    }
 }
 
 /// Returns the current Exception Level.
