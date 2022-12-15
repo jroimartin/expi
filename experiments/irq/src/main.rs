@@ -42,9 +42,8 @@ extern "C" fn kernel_main() {
     // Print banner.
     println!("expi");
 
-    let pin_button = Pin::try_from(GPIO_BUTTON).unwrap();
-
     // Configure GPIO pins.
+    let pin_button = Pin::try_from(GPIO_BUTTON).unwrap();
     pin_button.set_pull_state(PullState::Up);
     pin_button.set_function(Function::Input);
     pin_button.enable_event(Event::FallingEdge);
@@ -69,7 +68,7 @@ extern "C" fn kernel_main() {
     unsafe { mmio::write(IRQEN2, 1 << 20) }
 
     loop {
-        println!("hi!");
+        println!("waiting...");
         time::delay(1_000_000);
     }
 }
