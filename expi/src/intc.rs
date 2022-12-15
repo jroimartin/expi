@@ -33,10 +33,10 @@ const INTGPUPEND_BASE: usize = INTC_BASE + 0x4;
 /// Address of the FIQ control register.
 const FIQCTL: usize = INTC_BASE + 0xc;
 
-/// Base address of the interrupt enable registers.
+/// Base address of the IRQ enable registers.
 const INTEN_BASE: usize = INTC_BASE + 0x10;
 
-/// Base address of the interrupt disable registers.
+/// Base address of the IRQ disable registers.
 const INTDIS_BASE: usize = INTC_BASE + 0x1c;
 
 /// Number of GPU IRQs.
@@ -114,7 +114,7 @@ pub enum IrqSource {
     /// Illegal Access type 0.
     IllegalAccess0,
 
-    /// Generic GPU interrupt.
+    /// Generic GPU IRQ.
     Gpu(GpuIrq),
 }
 
@@ -142,13 +142,13 @@ impl TryFrom<IrqSource> for GpuIrq {
 
 /// IRQ register.
 enum IrqReg {
-    /// GPU interrupt register 1.
+    /// GPU IRQ register 1.
     Gpu1,
 
-    /// GPU interrupt register 2.
+    /// GPU IRQ register 2.
     Gpu2,
 
-    /// Basic interrupt register.
+    /// Basic IRQ register.
     Basic,
 }
 
@@ -162,7 +162,7 @@ impl From<IrqReg> for usize {
     }
 }
 
-/// Provides the register and bit position required to configure a given
+/// Provides the register and bit position required to configure a given IRQ
 /// source.
 struct IrqBit(IrqReg, usize);
 
@@ -441,7 +441,7 @@ pub struct GpuStatus([IrqStatus; NGPUIRQS]);
 
 impl GpuStatus {
     /// Returns true if the provided IRQ source is pending. `src` must be a
-    /// GPU interrupt.
+    /// GPU IRQ.
     pub fn pending(&self, src: IrqSource) -> Result<bool> {
         let irq = GpuIrq::try_from(src)?;
         let status = self.0[irq.0];
@@ -450,7 +450,7 @@ impl GpuStatus {
 }
 
 impl IrqSource {
-    /// Enables interrupts for the IRQ source.
+    /// Enables the IRQ source.
     pub fn enable(&self) {
         let bit = IrqBit::from(*self);
         let idx = usize::from(bit.0);
@@ -458,7 +458,7 @@ impl IrqSource {
         unsafe { mmio::write(addr, 1 << bit.1) };
     }
 
-    /// Disables interrupts for the IRQ source.
+    /// Disables the IRQ source.
     pub fn disable(&self) {
         let bit = IrqBit::from(*self);
         let idx = usize::from(bit.0);
@@ -466,7 +466,7 @@ impl IrqSource {
         unsafe { mmio::write(addr, 1 << bit.1) };
     }
 
-    /// Enable FIQ for the source. Only a single interrupt can be selected.
+    /// Enables FIQ for the source. Only a single interrupt can be selected.
     pub fn enable_fiq(&self) {
         // Make sure the IRQ is disabled for the source. Otherwise, both the
         // IRQ and the FIQ would be triggered.
@@ -480,7 +480,7 @@ impl IrqSource {
     }
 }
 
-/// Disable FIQs.
+/// Disables FIQ.
 pub fn disable_fiq() {
     unsafe { mmio::write(FIQCTL, 0) };
 }
