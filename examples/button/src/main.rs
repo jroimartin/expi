@@ -4,8 +4,7 @@
 #![no_std]
 #![no_main]
 
-use expi::cpu::exceptions::{self, Interrupt};
-use expi::cpu::time;
+use expi::cpu::exceptions::{self, Exception, Interrupt};
 use expi::gpio::{Event, Function, Pin, PullState};
 use expi::intc::{self, IrqSource};
 use expi::println;
@@ -33,26 +32,25 @@ fn kernel_main() {
     pin_button.enable_event(Event::FallingEdge);
 
     // Mask all interrupts.
-    exceptions::mask(Interrupt::Debug);
-    exceptions::mask(Interrupt::SError);
-    exceptions::mask(Interrupt::Irq);
-    exceptions::mask(Interrupt::Fiq);
+    Interrupt::SError.mask();
+    Interrupt::Irq.mask();
+    Interrupt::Fiq.mask();
+    Exception::Debug.mask();
 
     // Enable pysical IRQ routing.
-    exceptions::enable_routing(Interrupt::Irq).unwrap();
+    exceptions::enable_routing(Interrupt::Irq);
 
     // Set vector table address.
     exceptions::set_vector_table(0x90000);
 
     // Unmask IRQ.
-    exceptions::unmask(Interrupt::Irq);
+    Interrupt::Irq.unmask();
 
     // Enable GPIO interrupts.
     IrqSource::GPIO.enable();
 
-    loop {
-        time::delay(1_000_000);
-    }
+    #[allow(clippy::empty_loop)]
+    loop {}
 }
 
 /// IRQ handler.
