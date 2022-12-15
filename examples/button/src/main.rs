@@ -62,7 +62,7 @@ fn irq_handler() {
     if basic_status.pending_reg_2() {
         let gpu_status = intc::gpu_status();
         if gpu_status.pending(IrqSource::GPIO).unwrap() {
-            gpio_handler()
+            gpio_handler();
         }
     }
 }
