@@ -48,6 +48,19 @@ impl From<Exception> for DaifMask {
     }
 }
 
+/// HCR_EL2 register mask.
+struct HcrEl2Mask(u64);
+
+impl From<Interrupt> for HcrEl2Mask {
+    fn from(int: Interrupt) -> HcrEl2Mask {
+        match int {
+            Interrupt::SError => HcrEl2Mask(1 << 5),
+            Interrupt::Irq => HcrEl2Mask(1 << 4),
+            Interrupt::Fiq => HcrEl2Mask(1 << 3),
+        }
+    }
+}
+
 impl Exception {
     /// Mask the exception.
     pub fn mask(&self) {
@@ -82,18 +95,16 @@ impl Interrupt {
     pub fn unmask(&self) {
         Exception::from(*self).unmask()
     }
-}
 
-/// HCR_EL2 register mask.
-struct HcrEl2Mask(u64);
+    /// Enables physical routing for the interrupt.
+    pub fn route(&self) {
+        let mut hcr_el2: u64;
+        unsafe { asm!("mrs {hcr_el2}, hcr_el2", hcr_el2 = out(reg) hcr_el2) };
 
-impl From<Interrupt> for HcrEl2Mask {
-    fn from(int: Interrupt) -> HcrEl2Mask {
-        match int {
-            Interrupt::SError => HcrEl2Mask(1 << 5),
-            Interrupt::Irq => HcrEl2Mask(1 << 4),
-            Interrupt::Fiq => HcrEl2Mask(1 << 3),
-        }
+        let hcr_el2_mask = HcrEl2Mask::from(*self);
+        hcr_el2 |= hcr_el2_mask.0;
+
+        unsafe { asm!("msr hcr_el2, {hcr_el2}", hcr_el2 = in(reg) hcr_el2) };
     }
 }
 
@@ -111,16 +122,5 @@ pub fn current_el() -> u64 {
 
 /// Sets the exception vector table address.
 pub fn set_vector_table(address: usize) {
-    unsafe { asm!("msr vbar_el2, {address}", address = in(reg) address) };
-}
-
-/// Enables physical routing for the provided interrupt.
-pub fn enable_routing(int: Interrupt) {
-    let mut hcr_el2: u64;
-    unsafe { asm!("mrs {hcr_el2}, hcr_el2", hcr_el2 = out(reg) hcr_el2) };
-
-    let hcr_el2_mask = HcrEl2Mask::from(int);
-    hcr_el2 |= hcr_el2_mask.0;
-
-    unsafe { asm!("msr hcr_el2, {hcr_el2}", hcr_el2 = in(reg) hcr_el2) };
+    unsafe { asm!("msr vbar_el2, {address}", address = in(reg) address) }
 }

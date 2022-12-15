@@ -1,4 +1,7 @@
 //! Macros that generate low-level boilerplate code.
+//!
+//! expi does not aim to be used to build general purpose Operating Systems. We
+//! typically run in EL2. Thus, the macros are limited to this use case.
 
 use proc_macro::TokenStream;
 
@@ -157,14 +160,6 @@ impl Parse for ExceptionVectorTableParams {
 ///
 /// It takes the following arguments:
 ///
-/// - `curr_el_sp0_sync`: The exception handler for a synchronous exception
-///   from the current EL using SP0.
-/// - `curr_el_sp0_irq`: The exception handler for an IRQ exception from the
-///   current EL using SP0.
-/// - `curr_el_sp0_fiq`: The exception handler for an FIQ exception from the
-///   current EL using SP0.
-/// - `curr_el_sp0_serror`: The exception handler for a system error exception
-///   from the current EL using SP0.
 /// - `curr_el_spx_sync`: The exception handler for a synchronous exception
 ///   from the current EL using the current SP.
 /// - `curr_el_spx_irq`: The exception handler for an IRQ exception from the
@@ -173,22 +168,6 @@ impl Parse for ExceptionVectorTableParams {
 ///   using the current SP.
 /// - `curr_el_spx_serror`: The exception handler for a System Error exception
 ///   from the current EL using the current SP.
-/// - `lower_el_aarch64_sync`: The exception handler for a synchronous
-///   exception from a lower EL (AArch64).
-/// - `lower_el_aarch64_irq`: The exception handler for an IRQ from a lower EL
-///   (AArch64).
-/// - `lower_el_aarch64_fiq`: The exception handler for an FIQ from a lower EL
-///   (AArch64).
-/// - `lower_el_aarch64_serror`: The exception handler for a System Error
-///   exception from a lower EL (AArch64).
-/// - `lower_el_aarch32_sync`: The exception handler for a synchronous
-///   exception from a lower EL (AArch32).
-/// - `lower_el_aarch32_irq`: The exception handler for an IRQ exception from a
-///   lower EL (AArch32).
-/// - `lower_el_aarch32_fiq`: The exception handler for an FIQ exception from a
-///   lower EL (AArch32).
-/// - `lower_el_aarch32_serror`: The exception handler for a System Error
-///   exception from a lower EL (AArch32).
 ///
 /// Under the hood it creates a symbol called `_exception_vector_table` and
 /// specifies that it must be placed into a section called
@@ -216,9 +195,9 @@ pub fn exception_vector_table(item: TokenStream) -> TokenStream {
     let fnames = parse_macro_input!(item as ExceptionVectorTableParams);
     let fnames = fnames.0;
 
-    if fnames.len() != 16 {
+    if fnames.len() != 4 {
         panic!(
-            "the number of entries must be 16 ({} provided)",
+            "the number of entries must be 4: {} entries provided",
             fnames.len()
         );
     }
@@ -230,13 +209,13 @@ pub fn exception_vector_table(item: TokenStream) -> TokenStream {
 
     let vector_table_code = format!(
         r#"
-            b {curr_el_sp0_sync}
+            b _expi_c_unimplemented_exc
             .balign 0x80
-            b {curr_el_sp0_irq}
+            b _expi_c_unimplemented_exc
             .balign 0x80
-            b {curr_el_sp0_fiq}
+            b _expi_c_unimplemented_exc
             .balign 0x80
-            b {curr_el_sp0_serror}
+            b _expi_c_unimplemented_exc
 
             .balign 0x80
             b {curr_el_spx_sync}
@@ -248,39 +227,27 @@ pub fn exception_vector_table(item: TokenStream) -> TokenStream {
             b {curr_el_spx_serror}
 
             .balign 0x80
-            b {lower_el_aarch64_sync}
+            b _expi_c_unimplemented_exc
             .balign 0x80
-            b {lower_el_aarch64_irq}
+            b _expi_c_unimplemented_exc
             .balign 0x80
-            b {lower_el_aarch64_fiq}
+            b _expi_c_unimplemented_exc
             .balign 0x80
-            b {lower_el_aarch64_serror}
+            b _expi_c_unimplemented_exc
 
             .balign 0x80
-            b {lower_el_aarch32_sync}
+            b _expi_c_unimplemented_exc
             .balign 0x80
-            b {lower_el_aarch32_irq}
+            b _expi_c_unimplemented_exc
             .balign 0x80
-            b {lower_el_aarch32_fiq}
+            b _expi_c_unimplemented_exc
             .balign 0x80
-            b {lower_el_aarch32_serror}
+            b _expi_c_unimplemented_exc
         "#,
-        curr_el_sp0_sync = fnames_asm[0],
-        curr_el_sp0_irq = fnames_asm[1],
-        curr_el_sp0_fiq = fnames_asm[2],
-        curr_el_sp0_serror = fnames_asm[3],
-        curr_el_spx_sync = fnames_asm[4],
-        curr_el_spx_irq = fnames_asm[5],
-        curr_el_spx_fiq = fnames_asm[6],
-        curr_el_spx_serror = fnames_asm[7],
-        lower_el_aarch64_sync = fnames_asm[8],
-        lower_el_aarch64_irq = fnames_asm[9],
-        lower_el_aarch64_fiq = fnames_asm[10],
-        lower_el_aarch64_serror = fnames_asm[11],
-        lower_el_aarch32_sync = fnames_asm[12],
-        lower_el_aarch32_irq = fnames_asm[13],
-        lower_el_aarch32_fiq = fnames_asm[14],
-        lower_el_aarch32_serror = fnames_asm[15],
+        curr_el_spx_sync = fnames_asm[0],
+        curr_el_spx_irq = fnames_asm[1],
+        curr_el_spx_fiq = fnames_asm[2],
+        curr_el_spx_serror = fnames_asm[3],
     );
 
     let tokens = quote! {
@@ -289,6 +256,11 @@ pub fn exception_vector_table(item: TokenStream) -> TokenStream {
         #[naked]
         unsafe extern "C" fn _exception_vector_table() -> ! {
             core::arch::asm!(#vector_table_code, options(noreturn))
+        }
+
+        #[no_mangle]
+        unsafe extern "C" fn _expi_c_unimplemented_exc() {
+            unimplemented!();
         }
     };
 

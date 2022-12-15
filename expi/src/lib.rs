@@ -1,5 +1,9 @@
 //! expi simplifies writing kernels for the Raspberry Pi 3 Model B.
 //!
+//! expi does not aim to be used to build general purpose Operating Systems. We
+//! typically run in EL2. Thus, the functionalities exposed by this crate are
+//! in many cases (e.g. exception handling) limited to this use case.
+//!
 //! Although there are other methods, the documentation in this crate expects
 //! you to use [flatelf] to generate the kernel image and will provide you with
 //! the required linker arguments to make it possible.

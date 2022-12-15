@@ -38,7 +38,7 @@ fn kernel_main() {
     Exception::Debug.mask();
 
     // Enable pysical IRQ routing.
-    exceptions::enable_routing(Interrupt::Irq);
+    Interrupt::Irq.route();
 
     // Set vector table address.
     exceptions::set_vector_table(0x90000);
@@ -92,45 +92,10 @@ fn unimplemented_handler() {
 }
 
 exception_vector_table! {
-    // Exception from the current EL while using SP_EL0.
-
-    // Synchronous.
-    unimplemented_handler,
-    // IRQ.
-    unimplemented_handler,
-    // FIQ.
-    unimplemented_handler,
-    // SError
-    unimplemented_handler,
-
-    // Exception from the current EL while using SP_ELx.
-
     // Synchronous.
     unimplemented_handler,
     // IRQ.
     irq_handler,
-    // FIQ.
-    unimplemented_handler,
-    // SError
-    unimplemented_handler,
-
-    // Exception from a lower EL and at least one lower EL is AArch64.
-
-    // Synchronous.
-    unimplemented_handler,
-    // IRQ.
-    unimplemented_handler,
-    // FIQ.
-    unimplemented_handler,
-    // SError
-    unimplemented_handler,
-
-    // Exception from a lower EL and all lower ELs are AArch32.
-
-    // Synchronous.
-    unimplemented_handler,
-    // IRQ.
-    unimplemented_handler,
     // FIQ.
     unimplemented_handler,
     // SError
