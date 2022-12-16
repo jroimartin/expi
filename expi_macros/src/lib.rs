@@ -103,25 +103,27 @@ pub fn exception_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let handler_code = format!(
         r#"
-            STP X0, X1, [SP, #-16]!
-            STP X2, X3, [SP, #-16]!
-            STP X4, X5, [SP, #-16]!
-            STP X6, X7, [SP, #-16]!
-            STP X8, X9, [SP, #-16]!
-            STP X10, X11, [SP, #-16]!
-            STP X12, X13, [SP, #-16]!
-            STP X14, X15, [SP, #-16]!
+            STP x0, x1, [SP, #-16]!
+            STP x2, x3, [SP, #-16]!
+            STP x4, x5, [SP, #-16]!
+            STP x6, x7, [SP, #-16]!
+            STP x8, x9, [SP, #-16]!
+            STP x10, x11, [SP, #-16]!
+            STP x12, x13, [SP, #-16]!
+            STP x14, x15, [SP, #-16]!
+            STP lr, xzr, [SP, #-16]!
 
             bl {}
 
-            LDP X14, X15, [SP], #16
-            LDP X12, X13, [SP], #16
-            LDP X10, X11, [SP], #16
-            LDP X8, X9, [SP], #16
-            LDP X6, X7, [SP], #16
-            LDP X4, X5, [SP], #16
-            LDP X2, X3, [SP], #16
-            LDP X0, X1, [SP], #16
+            LDP lr, xzr, [SP], #16
+            LDP x14, x15, [SP], #16
+            LDP x12, x13, [SP], #16
+            LDP x10, x11, [SP], #16
+            LDP x8, x9, [SP], #16
+            LDP x6, x7, [SP], #16
+            LDP x4, x5, [SP], #16
+            LDP x2, x3, [SP], #16
+            LDP x0, x1, [SP], #16
 
             eret
         "#,
