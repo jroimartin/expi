@@ -63,7 +63,7 @@ const GPPUD: usize = GPIO_BASE + 0x94;
 const GPPUDCLK_BASE: usize = GPIO_BASE + 0x98;
 
 /// Number of GPIO pins.
-pub const NPINS: usize = 54;
+const NPINS: usize = 54;
 
 /// Pull state (pull-up/pull-down) for a GPIO pin.
 #[derive(Debug, Copy, Clone)]
