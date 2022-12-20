@@ -35,7 +35,7 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     () => {
-        println!("");
+        $crate::println!("");
     };
 
     ($($arg:tt)*) => {
