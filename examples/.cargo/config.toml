@@ -2,10 +2,10 @@
 target = "aarch64-unknown-none"
 
 [target.aarch64-unknown-none]
-runner = "../qemu-run"
+runner = "../tools/qemu-run"
 
 [unstable]
-build-std = ["core"]
+build-std = ["core", "alloc"]
 
 [profile.dev]
 panic = "abort"

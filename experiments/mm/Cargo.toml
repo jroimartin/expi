@@ -1,8 +1,9 @@
 [package]
-name = "expi"
+name = "mm"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [dependencies]
-range = { path = "../range" }
+expi = { path = "../../expi" }
+range = { path = "../../range" }

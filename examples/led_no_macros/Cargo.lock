@@ -5,6 +5,9 @@ version = 3
 [[package]]
 name = "expi"
 version = "0.1.0"
+dependencies = [
+ "range",
+]
 
 [[package]]
 name = "led_no_macros"
@@ -12,3 +15,7 @@ version = "0.1.0"
 dependencies = [
  "expi",
 ]
+
+[[package]]
+name = "range"
+version = "0.1.0"

@@ -4,43 +4,43 @@
 #![no_std]
 #![no_main]
 
-use expi::cpu::{exceptions, pm, time};
+use expi::cpu::{exceptions, pmu, time};
 use expi::println;
 use expi_macros::entrypoint;
 
 /// Kernel main function.
 #[entrypoint]
-fn kernel_main() {
+fn kernel_main(_dtb_ptr32: u32) {
     println!("expi");
 
     println!("Current EL: {:x}", exceptions::current_el());
 
-    pm::enable_cycle_counter();
+    pmu::enable_cycle_counter();
 
-    let start = pm::cycle_counter();
+    let start = pmu::cycle_counter();
     time::delay(1000);
-    let end = pm::cycle_counter();
+    let end = pmu::cycle_counter();
     println!("start={} end={} cycles={}", start, end, end - start);
 
-    let start = pm::cycle_counter();
+    let start = pmu::cycle_counter();
     time::delay(1000);
-    let end = pm::cycle_counter();
+    let end = pmu::cycle_counter();
     println!("start={} end={} cycles={}", start, end, end - start);
 
-    let start = pm::cycle_counter();
+    let start = pmu::cycle_counter();
     time::delay(1000);
-    let end = pm::cycle_counter();
+    let end = pmu::cycle_counter();
     println!("start={} end={} cycles={}", start, end, end - start);
 
-    pm::reset_cycle_counter();
-    let start = pm::cycle_counter();
+    pmu::reset_cycle_counter();
+    let start = pmu::cycle_counter();
     time::delay(1000);
-    let end = pm::cycle_counter();
+    let end = pmu::cycle_counter();
     println!("start={} end={} cycles={}", start, end, end - start);
 
-    pm::reset_cycle_counter();
-    let start = pm::cycle_counter();
+    pmu::reset_cycle_counter();
+    let start = pmu::cycle_counter();
     time::delay(1000);
-    let end = pm::cycle_counter();
+    let end = pmu::cycle_counter();
     println!("start={} end={} cycles={}", start, end, end - start);
 }

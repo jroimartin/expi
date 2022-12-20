@@ -21,11 +21,14 @@ echo "Entry point: ${entry}"
 echo "Size: ${size}"
 echo '---'
 
+dtb="$(dirname $0)/bcm2710-rpi-3-b.dtb"
+
 qemu-system-aarch64 \
 	-nodefaults \
 	-nographic \
 	-cpu cortex-a53 \
 	-M raspi3b \
+	-dtb "${dtb}" \
 	-serial mon:stdio \
 	-kernel "${kernel_flat}" \
 	"$@"

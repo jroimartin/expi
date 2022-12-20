@@ -12,8 +12,8 @@ use syn::{parse_macro_input, Ident, ItemFn, Token};
 
 /// Generates the boilerplate required to call the provided function on boot.
 ///
-/// It also generates a panic handler and tries to initialize the UART, so
-/// panic messages can be printed. If UART initialization fails, it enters an
+/// It also generates a panic handler and a global memory allocator. It tries
+/// to initialize the global resources. If initialization fails, it enters an
 /// infinite loop.
 ///
 /// Under the hood it specifies that the entrypoint must be placed into a
@@ -44,11 +44,10 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
         r#"
                 ldr x5, =0x80000
                 mov sp, x5
-                bl {}
+                bl {fname_c}
             1:
                 b 1b
-        "#,
-        fname_c,
+        "#
     );
 
     let tokens = quote! {
@@ -60,13 +59,17 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[no_mangle]
-        unsafe extern "C" fn #fname_c() {
-            if expi::uart::init().is_err() {
+        unsafe extern "C" fn #fname_c(dtb_ptr32: u32) {
+            if expi::globals::init(dtb_ptr32).is_err() {
                 loop{}
             }
 
-            #fname_rust()
+            #fname_rust(dtb_ptr32)
         }
+
+        #[global_allocator]
+        static GLOBAL_ALLOCATOR: expi::mm::GlobalAllocator =
+            expi::mm::GlobalAllocator;
 
         #[panic_handler]
         fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -113,7 +116,7 @@ pub fn exception_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
             stp x14, x15, [SP, #-16]!
             stp lr, xzr, [SP, #-16]!
 
-            bl {}
+            bl {fname_c}
 
             ldp lr, xzr, [SP], #16
             ldp x14, x15, [SP], #16
@@ -126,8 +129,7 @@ pub fn exception_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
             ldp x0, x1, [SP], #16
 
             eret
-        "#,
-        fname_c,
+        "#
     );
 
     let tokens = quote! {

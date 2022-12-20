@@ -6,7 +6,6 @@
 //! [Mailboxes]: https://github.com/raspberrypi/firmware/wiki/Mailboxes
 
 use crate::mmio;
-use crate::{Error, Result};
 
 /// Base address of the mailbox.
 ///
@@ -48,6 +47,16 @@ const MBOX_WRITE: usize = MBOX_BASE + 0x20;
 /// Property tags channel (ARM -> VC).
 const MBOX_CHAN_PROP: u32 = 8;
 
+/// Mailbox error.
+#[derive(Debug)]
+pub enum Error {
+    /// Mailbox request could not be processed.
+    RequestFailed,
+
+    /// There is not enough room in the mailbox buffer to allocate the request.
+    RequestIsTooBig,
+}
+
 /// An 16-bytes aligned buffer suitable for mailbox communication.
 #[repr(C, align(16))]
 struct MboxBuffer([u32; 8192]);
@@ -56,7 +65,7 @@ struct MboxBuffer([u32; 8192]);
 static mut MBOX_BUFFER: MboxBuffer = MboxBuffer([0u32; 8192]);
 
 /// Sets the UART clock frequency to `freq` Hz.
-pub fn set_uartclk_freq(freq: u32) -> Result<()> {
+pub fn set_uartclk_freq(freq: u32) -> Result<(), Error> {
     let tags: [u32; 6] = [
         0x38002, // "Set clock rate" tag id.
         12,      // Value buffer length.
@@ -70,7 +79,7 @@ pub fn set_uartclk_freq(freq: u32) -> Result<()> {
 }
 
 /// Returns the temperature of the SoC in thousandths of a degree C.
-pub fn get_temperature() -> Result<u32> {
+pub fn get_temperature() -> Result<u32, Error> {
     let tags: [u32; 5] = [
         0x30006, // "Get temperature" tag id.
         8,       // Value buffer length.
@@ -87,7 +96,7 @@ pub fn get_temperature() -> Result<u32> {
 }
 
 /// Returns `(base, size)` of ARM memory.
-pub fn get_arm_memory() -> Result<(u32, u32)> {
+pub fn get_arm_memory() -> Result<(u32, u32), Error> {
     let tags: [u32; 5] = [
         0x10005, // "Get ARM memory" tag id.
         8,       // Value buffer length.
@@ -103,13 +112,30 @@ pub fn get_arm_memory() -> Result<(u32, u32)> {
     Ok((base, size))
 }
 
+/// Returns `(base, size)` of VideoCore memory.
+pub fn get_vc_memory() -> Result<(u32, u32), Error> {
+    let tags: [u32; 5] = [
+        0x10006, // "Get VC memory" tag id.
+        8,       // Value buffer length.
+        0,       // Bit 31 is 0 for requests.
+        0,       // Placeholder for base address.
+        0,       // Placeholder for size in bytes.
+    ];
+
+    process_request(&tags)?;
+
+    let (base, size) = unsafe { (MBOX_BUFFER.0[5], MBOX_BUFFER.0[6]) };
+
+    Ok((base, size))
+}
+
 /// Issue a new mailbox request with the provided concatenated tags.
-pub fn process_request(tags: &[u32]) -> Result<()> {
+pub fn process_request(tags: &[u32]) -> Result<(), Error> {
     unsafe {
         // There must be room for the request, the headers values and the end
         // tag.
         if tags.len() > MBOX_BUFFER.0.len() - 3 {
-            return Err(Error::MailboxRequestIsTooBig);
+            return Err(Error::RequestIsTooBig);
         }
 
         // Clear the buffer.
@@ -141,12 +167,12 @@ pub fn process_request(tags: &[u32]) -> Result<()> {
 
         // The response should return the same data that was sent.
         if mmio::read(MBOX_READ) != data {
-            return Err(Error::MailboxRequestFailed);
+            return Err(Error::RequestFailed);
         }
 
         // Check if the request was processed successfully.
         if MBOX_BUFFER.0[1] != MBOX_REQ_OK {
-            return Err(Error::MailboxRequestFailed);
+            return Err(Error::RequestFailed);
         }
 
         Ok(())

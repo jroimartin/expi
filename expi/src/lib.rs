@@ -30,40 +30,16 @@
 //! [flatelf]: https://github.com/jroimartin/flatelf/
 
 #![no_std]
-#![feature(panic_info_message)]
 
+pub mod binary;
 pub mod cpu;
+pub mod devicetree;
+pub mod globals;
 pub mod gpio;
 pub mod intc;
 pub mod mailbox;
+pub mod mm;
 pub mod mmio;
 pub mod print;
+pub mod ptr;
 pub mod uart;
-
-/// Expi error.
-#[derive(Debug, Copy, Clone)]
-pub enum Error {
-    /// At least one of the arguments provided to the function is not valid.
-    InvalidArg,
-
-    /// Invalid GPIO pin.
-    InvalidGpioPin(usize),
-
-    /// Invalid Alternate Function number.
-    InvalidAltFcn(u32),
-
-    /// Invalid GPU IRQ number.
-    InvalidGpuIrq(usize),
-
-    /// Not a GPU interrupt.
-    NotAGpuIrq,
-
-    /// Mailbox request could not be processed.
-    MailboxRequestFailed,
-
-    /// There is not enough room in the mailbox buffer to allocate the request.
-    MailboxRequestIsTooBig,
-}
-
-/// Expi result.
-pub type Result<T> = core::result::Result<T, Error>;

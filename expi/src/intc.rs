@@ -6,7 +6,6 @@
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 
 use crate::mmio;
-use crate::{Error, Result};
 
 /// Base address of the interrupt controller.
 ///
@@ -42,6 +41,16 @@ const INTDIS_BASE: usize = INTC_BASE + 0x1c;
 /// Number of GPU IRQs.
 const NGPUIRQS: usize = 64;
 
+/// Interrupt controller error.
+#[derive(Debug)]
+pub enum Error {
+    /// Invalid GPU IRQ number.
+    InvalidGpuIrq(usize),
+
+    /// Not a GPU interrupt.
+    NotAGpuIrq,
+}
+
 /// Represents a GPU IRQ.
 #[derive(Debug, Copy, Clone)]
 pub struct GpuIrq(usize);
@@ -49,7 +58,7 @@ pub struct GpuIrq(usize);
 impl TryFrom<usize> for GpuIrq {
     type Error = Error;
 
-    fn try_from(irq: usize) -> Result<GpuIrq> {
+    fn try_from(irq: usize) -> Result<GpuIrq, Error> {
         if irq >= NGPUIRQS {
             return Err(Error::InvalidGpuIrq(irq));
         }
@@ -121,7 +130,7 @@ pub enum IrqSource {
 impl TryFrom<IrqSource> for GpuIrq {
     type Error = Error;
 
-    fn try_from(src: IrqSource) -> Result<GpuIrq> {
+    fn try_from(src: IrqSource) -> Result<GpuIrq, Error> {
         let irq = match src {
             IrqSource::Aux => GpuIrq(29),
             IrqSource::I2cSpiSlv => GpuIrq(43),
@@ -442,7 +451,7 @@ pub struct GpuStatus([IrqStatus; NGPUIRQS]);
 impl GpuStatus {
     /// Returns true if the provided IRQ source is pending. `src` must be a
     /// GPU IRQ.
-    pub fn pending(&self, src: IrqSource) -> Result<bool> {
+    pub fn pending(&self, src: IrqSource) -> Result<bool, Error> {
         let irq = GpuIrq::try_from(src)?;
         let status = self.0[irq.0];
         Ok(matches!(status, IrqStatus::Pending))

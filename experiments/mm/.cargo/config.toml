@@ -1,0 +1,8 @@
+[target.aarch64-unknown-none]
+rustflags = [
+    "-Ccode-model=large",
+    "-Crelocation-model=static",
+    "-Clink-arg=--nmagic",
+    "-Clink-arg=--image-base=0x80000",
+    "-Clink-arg=--section-start=.entry=0x80000",
+]

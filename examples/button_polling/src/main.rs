@@ -16,7 +16,7 @@ const GPIO_BUTTON: usize = 16;
 
 /// Kernel main function.
 #[entrypoint]
-fn kernel_main() {
+fn kernel_main(_dtb_ptr32: u32) {
     println!("expi");
 
     // Configure LED GPIO pin.

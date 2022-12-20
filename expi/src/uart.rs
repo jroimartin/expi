@@ -8,10 +8,9 @@
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 //! [PL011 Technical Reference Manual]: https://static6.arrow.com/aropdfconversion/32f6a7175ece91477c63bc40811c02e077718861/ddi0183.pdf
 
-use crate::gpio::{Pin, PullState};
+use crate::gpio;
 use crate::mailbox;
 use crate::mmio;
-use crate::Result;
 
 /// Base address of the PL011 UART.
 ///
@@ -58,8 +57,30 @@ const UARTIMSC: usize = UART_BASE + 0x38;
 /// UART interrupt clear register.
 const UARTICR: usize = UART_BASE + 0x44;
 
+/// UART error.
+#[derive(Debug)]
+pub enum Error {
+    /// GPIO error.
+    GpioError(gpio::Error),
+
+    /// Mailbox error.
+    MailboxError(mailbox::Error),
+}
+
+impl From<gpio::Error> for Error {
+    fn from(err: gpio::Error) -> Error {
+        Error::GpioError(err)
+    }
+}
+
+impl From<mailbox::Error> for Error {
+    fn from(err: mailbox::Error) -> Error {
+        Error::MailboxError(err)
+    }
+}
+
 /// Initializes the UART.
-pub fn init() -> Result<()> {
+pub fn init() -> Result<(), Error> {
     unsafe {
         // Mask all UART interrupts. RIMIM, DCDMIM and DSRMIM are unsupported,
         // so we write 0.
@@ -82,10 +103,10 @@ pub fn init() -> Result<()> {
         mmio::write(UARTCR, 0);
 
         // Disable pull-up/down in pins 14 (TX) and 15 (RX).
-        let pin_tx = Pin::try_from(14)?;
-        pin_tx.set_pull_state(PullState::Off);
-        let pin_rx = Pin::try_from(15)?;
-        pin_rx.set_pull_state(PullState::Off);
+        let pin_tx = gpio::Pin::try_from(14)?;
+        pin_tx.set_pull_state(gpio::PullState::Off);
+        let pin_rx = gpio::Pin::try_from(15)?;
+        pin_rx.set_pull_state(gpio::PullState::Off);
 
         // Set UART clock frequency to 3MHz.
         mailbox::set_uartclk_freq(3_000_000)?;

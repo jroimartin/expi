@@ -6,7 +6,6 @@
 
 use crate::cpu::time;
 use crate::mmio;
-use crate::{Error, Result};
 
 /// Base address of GPIO.
 ///
@@ -65,6 +64,16 @@ const GPPUDCLK_BASE: usize = GPIO_BASE + 0x98;
 /// Number of GPIO pins.
 const NPINS: usize = 54;
 
+/// GPIO error.
+#[derive(Debug)]
+pub enum Error {
+    /// Invalid GPIO pin.
+    InvalidGpioPin(usize),
+
+    /// Invalid Alternate Function number.
+    InvalidAltFcn(u32),
+}
+
 /// Pull state (pull-up/pull-down) for a GPIO pin.
 #[derive(Debug, Copy, Clone)]
 pub enum PullState {
@@ -95,7 +104,7 @@ pub struct AltFcnNum(u32);
 impl TryFrom<u32> for AltFcnNum {
     type Error = Error;
 
-    fn try_from(num: u32) -> Result<AltFcnNum> {
+    fn try_from(num: u32) -> Result<AltFcnNum, Error> {
         match num {
             0 => Ok(AltFcnNum(0b100)),
             1 => Ok(AltFcnNum(0b101)),
@@ -250,7 +259,7 @@ pub struct Pin(usize);
 impl TryFrom<usize> for Pin {
     type Error = Error;
 
-    fn try_from(pin: usize) -> Result<Pin> {
+    fn try_from(pin: usize) -> Result<Pin, Error> {
         if pin >= NPINS {
             return Err(Error::InvalidGpioPin(pin));
         }

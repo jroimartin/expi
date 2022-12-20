@@ -1,4 +1,4 @@
-//! Access to performance monitors.
+//! Utilities to interact with the Performance Monitor Unit.
 
 use core::arch::asm;
 
@@ -7,7 +7,7 @@ pub fn enable_cycle_counter() {
     unsafe {
         // Count cycles in EL2.
         asm!(
-            "msr PMCCFILTR_EL0, {pmccfiltr_el0}",
+            "msr pmccfiltr_el0, {pmccfiltr_el0}",
             pmccfiltr_el0 = in(reg) 1u64 << 27,
         );
 
@@ -65,7 +65,7 @@ pub fn reset_cycle_counter() {
 pub fn cycle_counter() -> u64 {
     unsafe {
         let mut cycles: u64;
-        asm!("mrs {cycles}, PMCCNTR_EL0", cycles = out(reg) cycles);
+        asm!("mrs {cycles}, pmccntr_el0", cycles = out(reg) cycles);
         cycles
     }
 }
