@@ -33,6 +33,11 @@ cd <kernel>
 cargo run --release
 ```
 
+### DTB
+
+The DTB file `/tools/bcm2710-rpi-3-b.dtb` used by `/tools/qemu-run` with QEMU
+has been downloaded from the [Raspberry Pi firmware repository].
+
 ## Enable Raspberry Pi's first PL011 (UART0)
 
 Raspberry Pi's first PL011 (UART0) can be enabled adding the follow lines to
@@ -68,12 +73,7 @@ You might need to adjust the `interface` and `dhcp-range` parameters depending
 on your network setup. You also have to copy the files mentioned in the "Build"
 section into `/var/tftproot`.
 
-## DTB
-
-The DTB file `/tools/bcm2710-rpi-3-b.dtb` used by `/tools/qemu-run` with QEMU
-has been downloaded from the [Raspberry Pi firmware repository].
-
 
 [flatelf]: https://github.com/jroimartin/flatelf/
-[GPIO14 and GPIO15]: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#gpio-and-the-40-pin-header
 [Raspberry Pi firmware repository]: https://github.com/raspberrypi/firmware/
+[GPIO14 and GPIO15]: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#gpio-and-the-40-pin-header
