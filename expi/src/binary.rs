@@ -45,20 +45,3 @@ impl_from_bytes!(i16);
 impl_from_bytes!(i32);
 impl_from_bytes!(i64);
 impl_from_bytes!(i128);
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn from_le_bytes() {
-        let buf = [0x11, 0x22, 0x33, 0x44];
-        assert_eq!(<u32 as FromBytes>::from_le_bytes(&buf), 0x44332211)
-    }
-
-    #[test]
-    fn from_be_bytes() {
-        let buf = [0x11, 0x22, 0x33, 0x44];
-        assert_eq!(<u32 as FromBytes>::from_be_bytes(&buf), 0x11223344)
-    }
-}

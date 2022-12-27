@@ -86,9 +86,7 @@ extern "C" fn kernel_main(dtb_ptr32: u32) {
     let ptr = unsafe { alloc::alloc::alloc(layout) };
 
     // Make sure the compiler does not optimize away the allocation.
-    if !ptr.is_null() {
-        unsafe { core::ptr::write_volatile(ptr, 1u8) };
-    }
+    unsafe { core::ptr::write_volatile(ptr, 1u8) };
 
     println!("before dealloc: {:#x?}", free_mem.ranges());
     unsafe { alloc::alloc::dealloc(ptr, layout) };
