@@ -1,11 +1,13 @@
 //! Devicetree parser.
 
+use core::fmt;
+
 use crate::ptr::{self, MemReader, Ptr};
 
 /// Size of the array used to store the memory reservation block.
 const FDT_MEM_RSVMAP_SIZE: usize = 32;
 
-/// Devicetree error.
+/// Devicetree parsing error.
 #[derive(Debug)]
 pub enum Error {
     /// The magic field of the Flattened Devicetree header does not match
@@ -13,7 +15,7 @@ pub enum Error {
     InvalidFdtMagic,
 
     /// Only Devicetree Format version 17 is supported.
-    UnsupportedFdtVersion,
+    UnsupportedFdtVersion(u32),
 
     /// The fixed size array used to store the reserved memory regions is full.
     FullRsvRegions,
@@ -25,6 +27,21 @@ pub enum Error {
 impl From<ptr::Error> for Error {
     fn from(err: ptr::Error) -> Error {
         Error::PtrError(err)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::InvalidFdtMagic => write!(f, "invalid FDT magic"),
+            Error::UnsupportedFdtVersion(version) => {
+                write!(f, "unsupported FDT version: {version}")
+            }
+            Error::FullRsvRegions => {
+                write!(f, "memory reservation internal buffer is full")
+            }
+            Error::PtrError(err) => write!(f, "memory access error: {err}"),
+        }
     }
 }
 
@@ -82,7 +99,7 @@ pub struct SimpleFdt {
 impl SimpleFdt {
     /// Parses enough of a Flattened Devicetree to produce an [`SimpleFdt`].
     ///
-    /// `ptr` must point to the beginning of a valid DTB.
+    /// `ptr` must point to the beginning of a valid FDT.
     ///
     /// # Safety
     ///
@@ -97,7 +114,7 @@ impl SimpleFdt {
             return Err(Error::InvalidFdtMagic);
         }
 
-        // Get DTB's totalsize.
+        // Get FDT's totalsize.
         let totalsize = mr.read_be::<u32>()?;
 
         // Skip the fields: off_dt_struct: u32 and off_dt_strings: u32.
@@ -109,7 +126,7 @@ impl SimpleFdt {
         // Check Flattened Devicetree Format version.
         let version = mr.read_be::<u32>()?;
         if version != 17 {
-            return Err(Error::UnsupportedFdtVersion);
+            return Err(Error::UnsupportedFdtVersion(version));
         }
 
         // Parse reserved memory regions.

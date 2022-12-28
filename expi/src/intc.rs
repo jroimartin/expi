@@ -5,6 +5,8 @@
 //!
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 
+use core::fmt;
+
 use crate::mmio;
 
 /// Base address of the interrupt controller.
@@ -49,6 +51,15 @@ pub enum Error {
 
     /// Not a GPU interrupt.
     NotAGpuIrq,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::InvalidGpuIrq(irq) => write!(f, "invalid GPU IRQ: {irq}"),
+            Error::NotAGpuIrq => write!(f, "not a GPU interrupt"),
+        }
+    }
 }
 
 /// Represents a GPU IRQ.

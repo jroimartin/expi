@@ -13,8 +13,8 @@ use syn::{parse_macro_input, Ident, ItemFn, Token};
 /// Generates the boilerplate required to call the provided function on boot.
 ///
 /// It also generates a panic handler and a global memory allocator. It tries
-/// to initialize the global resources. If initialization fails, it enters an
-/// infinite loop.
+/// to initialize the global resources. If UART initialization fails, it enters
+/// an infinite loop, otherwise it panics.
 ///
 /// Under the hood it specifies that the entrypoint must be placed into a
 /// section called `.entry`.
@@ -60,8 +60,10 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         #[no_mangle]
         unsafe extern "C" fn #fname_c(dtb_ptr32: u32) {
-            if expi::globals::init(dtb_ptr32).is_err() {
-                loop{}
+            match expi::globals::init(dtb_ptr32) {
+                Ok(_) => {}
+                Err(expi::globals::Error::UartError(_)) => loop{},
+                Err(err) => panic!("init error: {}", err),
             }
 
             #fname_rust(dtb_ptr32)

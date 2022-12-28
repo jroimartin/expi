@@ -1,16 +1,27 @@
 //! Utilities for dealing with memory through pointers.
 
+use core::fmt;
+
 use crate::binary::FromBytes;
 
 /// Size of the internal buffer used by [`MemReader`] to store [`FromBytes`]
 /// values.
 const MEM_READER_BUF_SIZE: usize = 1024;
 
-/// Error while dealing with pointers.
+/// Error while dealing with memory through pointers.
 #[derive(Debug)]
 pub enum Error {
-    /// The fixed size buffer used by [`MemReader`] is full.
-    MemReaderBufFull,
+    /// The requested type is too big to fit in the fixed size buffer used by
+    /// [`MemReader`].
+    TypeSizeIsToBig,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::TypeSizeIsToBig => write!(f, "requested type is to big"),
+        }
+    }
 }
 
 /// A pointer to an arbitrary memory location.
@@ -68,7 +79,7 @@ impl MemReader {
     pub unsafe fn read_le<T: FromBytes>(&mut self) -> Result<T, Error> {
         let tsz = core::mem::size_of::<T>();
         if tsz > MEM_READER_BUF_SIZE {
-            return Err(Error::MemReaderBufFull);
+            return Err(Error::TypeSizeIsToBig);
         }
 
         let mut buf = [0u8; MEM_READER_BUF_SIZE];
@@ -86,7 +97,7 @@ impl MemReader {
     pub unsafe fn read_be<T: FromBytes>(&mut self) -> Result<T, Error> {
         let tsz = core::mem::size_of::<T>();
         if tsz > MEM_READER_BUF_SIZE {
-            return Err(Error::MemReaderBufFull);
+            return Err(Error::TypeSizeIsToBig);
         }
 
         let mut buf = [0u8; MEM_READER_BUF_SIZE];

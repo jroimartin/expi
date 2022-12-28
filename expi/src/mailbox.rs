@@ -5,6 +5,8 @@
 //!
 //! [Mailboxes]: https://github.com/raspberrypi/firmware/wiki/Mailboxes
 
+use core::fmt;
+
 use crate::mmio;
 
 /// Base address of the mailbox.
@@ -55,6 +57,17 @@ pub enum Error {
 
     /// There is not enough room in the mailbox buffer to allocate the request.
     RequestIsTooBig,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::RequestFailed => {
+                write!(f, "mailbox request could not be processed")
+            }
+            Error::RequestIsTooBig => write!(f, "request it too big"),
+        }
+    }
 }
 
 /// An 16-bytes aligned buffer suitable for mailbox communication.

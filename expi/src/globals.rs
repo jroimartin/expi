@@ -1,5 +1,7 @@
 //! Global resources.
 
+use core::fmt;
+
 use crate::mm;
 use crate::uart;
 
@@ -24,6 +26,15 @@ impl From<uart::Error> for Error {
 impl From<mm::AllocError> for Error {
     fn from(err: mm::AllocError) -> Error {
         Error::AllocError(err)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::UartError(err) => write!(f, "UART error: {err}"),
+            Error::AllocError(err) => write!(f, "allocator error: {err}"),
+        }
     }
 }
 

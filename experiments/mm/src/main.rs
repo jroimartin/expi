@@ -118,7 +118,7 @@ static GLOBAL_ALLOCATOR: GlobalAllocator = GlobalAllocator;
 /// [`RangeSet`] with the free memory regions.
 static mut FREE_MEM: Option<RangeSet> = None;
 
-/// Allocation error.
+/// Allocator error.
 #[derive(Debug)]
 enum AllocError {
     /// The global allocator has not been initialized.

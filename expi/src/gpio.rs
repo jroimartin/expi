@@ -4,6 +4,8 @@
 //!
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 
+use core::fmt;
+
 use crate::cpu::time;
 use crate::mmio;
 
@@ -72,6 +74,19 @@ pub enum Error {
 
     /// Invalid Alternate Function number.
     InvalidAltFcn(u32),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::InvalidGpioPin(pin) => {
+                write!(f, "invalid GPIO pin: {pin}")
+            }
+            Error::InvalidAltFcn(n) => {
+                write!(f, "invalid alternate function number: {n}")
+            }
+        }
+    }
 }
 
 /// Pull state (pull-up/pull-down) for a GPIO pin.

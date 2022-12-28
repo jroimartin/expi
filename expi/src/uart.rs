@@ -8,6 +8,8 @@
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 //! [PL011 Technical Reference Manual]: https://static6.arrow.com/aropdfconversion/32f6a7175ece91477c63bc40811c02e077718861/ddi0183.pdf
 
+use core::fmt;
+
 use crate::gpio;
 use crate::mailbox;
 use crate::mmio;
@@ -76,6 +78,15 @@ impl From<gpio::Error> for Error {
 impl From<mailbox::Error> for Error {
     fn from(err: mailbox::Error) -> Error {
         Error::MailboxError(err)
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::GpioError(err) => write!(f, "GPIO error: {err}"),
+            Error::MailboxError(err) => write!(f, "mailbox error: {err}"),
+        }
     }
 }
 

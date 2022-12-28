@@ -3,16 +3,30 @@
 #![no_std]
 
 use core::cmp::max;
+use core::fmt;
 
 /// Represents an error related to a `Range` or a `RangeSet`.
 #[derive(Debug)]
 pub enum Error {
     /// Invalid range boundaries.
-    InvalidBoundaries,
+    InvalidBoundaries(u64, u64),
 
     /// The fixed size array that backs the `RangeSet` is full. It is not
     /// possible to add more ranges.
     FullRangeSet,
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::InvalidBoundaries(start, end) => {
+                write!(f, "invalid range boundaries: [{start}, {end}]")
+            }
+            Error::FullRangeSet => {
+                write!(f, "RangeSet internal buffer is full")
+            }
+        }
+    }
 }
 
 /// Represents an inclusive range.
@@ -36,7 +50,7 @@ impl Range {
         if start <= end {
             Ok(Range { start, end })
         } else {
-            Err(Error::InvalidBoundaries)
+            Err(Error::InvalidBoundaries(start, end))
         }
     }
 

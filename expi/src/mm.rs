@@ -1,6 +1,7 @@
 //! Memory management.
 
 use core::alloc::{GlobalAlloc, Layout};
+use core::fmt;
 
 use crate::devicetree;
 use crate::globals::GLOBALS;
@@ -54,6 +55,30 @@ impl From<devicetree::Error> for AllocError {
 impl From<range::Error> for AllocError {
     fn from(err: range::Error) -> AllocError {
         AllocError::RangeError(err)
+    }
+}
+
+impl fmt::Display for AllocError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AllocError::Uninitialized => {
+                write!(f, "global allocator is not initialized")
+            }
+            AllocError::InvalidAlign => write!(f, "invalid alignment"),
+            AllocError::NotSatisfiable => {
+                write!(f, "could not find a suitable memory region")
+            }
+            AllocError::NullPtr => write!(f, "pointer is null"),
+            AllocError::ZeroSize => write!(f, "size is zero"),
+            AllocError::IntegerOverflow => write!(f, "integer overflow"),
+            AllocError::MailboxError(err) => {
+                write!(f, "mailbox error: {err}")
+            }
+            AllocError::DevicetreeError(err) => {
+                write!(f, "devicetree parsing error: {err}")
+            }
+            AllocError::RangeError(err) => write!(f, "range error: {err}"),
+        }
     }
 }
 
