@@ -14,6 +14,7 @@ dependencies = [
 name = "expi"
 version = "0.1.0"
 dependencies = [
+ "mutex",
  "range",
 ]
 
@@ -24,6 +25,10 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "mutex"
+version = "0.1.0"
 
 [[package]]
 name = "proc-macro2"

@@ -6,3 +6,4 @@ publish = false
 
 [dependencies]
 range = { path = "../range" }
+mutex = { path = "../mutex" }

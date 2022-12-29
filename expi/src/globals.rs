@@ -5,6 +5,7 @@ use core::fmt;
 use crate::mm;
 use crate::uart;
 
+use mutex::TicketMutex;
 use range::RangeSet;
 
 /// Globals error.
@@ -41,21 +42,23 @@ impl fmt::Display for Error {
 /// Contains the global resources shared between modules.
 pub struct GlobalResources {
     /// [`RangeSet`] with the free memory regions.
-    free_memory: Option<RangeSet>,
+    free_memory: TicketMutex<Option<RangeSet>>,
 }
 
 /// Global resources shared between modules.
-pub static mut GLOBALS: GlobalResources = GlobalResources::new();
+pub static GLOBALS: GlobalResources = GlobalResources::new();
 
 impl GlobalResources {
     /// Creates a new [`GlobalResources`] structure.
     const fn new() -> GlobalResources {
-        GlobalResources { free_memory: None }
+        GlobalResources {
+            free_memory: TicketMutex::new(None),
+        }
     }
 
     /// Returns a reference to the list of free memory regions.
-    pub fn free_memory_mut(&mut self) -> &mut Option<RangeSet> {
-        &mut self.free_memory
+    pub fn get_free_memory(&self) -> &TicketMutex<Option<RangeSet>> {
+        &self.free_memory
     }
 }
 

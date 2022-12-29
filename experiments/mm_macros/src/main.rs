@@ -17,39 +17,31 @@ use expi_macros::entrypoint;
 fn kernel_main(_dtb_ptr32: u32) {
     println!("expi");
 
-    unsafe {
-        println!(
-            "start: {:#x?}",
-            GLOBALS.free_memory_mut().as_ref().unwrap().ranges()
-        );
-    }
+    println!(
+        "start: {:#x?}",
+        GLOBALS.get_free_memory().lock().as_ref().unwrap().ranges(),
+    );
 
     let mut v = vec![0, 1, 2, 3, 4];
     println!("{:?}", v);
 
-    unsafe {
-        println!(
-            "after vec: {:#x?}",
-            GLOBALS.free_memory_mut().as_ref().unwrap().ranges()
-        );
-    }
+    println!(
+        "after vec: {:#x?}",
+        GLOBALS.get_free_memory().lock().as_ref().unwrap().ranges(),
+    );
 
     v.push(5);
     println!("{:?}", v);
 
-    unsafe {
-        println!(
-            "after push: {:#x?}",
-            GLOBALS.free_memory_mut().as_ref().unwrap().ranges()
-        );
-    }
+    println!(
+        "after push: {:#x?}",
+        GLOBALS.get_free_memory().lock().as_ref().unwrap().ranges(),
+    );
 
     drop(v);
 
-    unsafe {
-        println!(
-            "after drop: {:#x?}",
-            GLOBALS.free_memory_mut().as_ref().unwrap().ranges()
-        );
-    }
+    println!(
+        "after drop: {:#x?}",
+        GLOBALS.get_free_memory().lock().as_ref().unwrap().ranges(),
+    );
 }
