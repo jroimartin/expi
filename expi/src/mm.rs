@@ -96,7 +96,7 @@ impl GlobalAllocator {
             return Err(AllocError::InvalidAlign);
         }
 
-        let mut free_mem_mg = GLOBALS.get_free_memory().lock();
+        let mut free_mem_mg = GLOBALS.free_memory().lock();
         let free_mem = free_mem_mg.as_mut().ok_or(AllocError::Uninitialized)?;
 
         let layout = layout.pad_to_align();
@@ -142,7 +142,7 @@ impl GlobalAllocator {
             return Err(AllocError::InvalidAlign);
         }
 
-        let mut free_mem_mg = GLOBALS.get_free_memory().lock();
+        let mut free_mem_mg = GLOBALS.free_memory().lock();
         let free_mem = free_mem_mg.as_mut().ok_or(AllocError::Uninitialized)?;
 
         let layout = layout.pad_to_align();
@@ -203,7 +203,7 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
         free_mem.remove(rsv)?;
     }
 
-    let mut free_mem_mg = GLOBALS.get_free_memory().lock();
+    let mut free_mem_mg = GLOBALS.free_memory().lock();
     *free_mem_mg = Some(free_mem);
 
     Ok(())

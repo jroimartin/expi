@@ -57,7 +57,7 @@ impl GlobalResources {
     }
 
     /// Returns a reference to the list of free memory regions.
-    pub fn get_free_memory(&self) -> &TicketMutex<Option<RangeSet>> {
+    pub fn free_memory(&self) -> &TicketMutex<Option<RangeSet>> {
         &self.free_memory
     }
 }
