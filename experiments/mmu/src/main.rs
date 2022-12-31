@@ -46,7 +46,7 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
     let tmpl_dev_ngnrne: u64 = (1 << 54) | (1 << 53) | (1 << 10) | (2 << 2);
 
     // Template for normal cacheable memory attributes: AF=1 Indx=1.
-    let tmpl_normal_wbrawa: u64 = (1 << 10) | (1 << 2);
+    let tmpl_normal_wbwara: u64 = (1 << 10) | (1 << 2);
 
     // Fill page tables.
     unsafe {
@@ -60,7 +60,7 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
         PAGE_TABLE_L1.0[2] = 0;
         // 0xc0000000-0xffffffff.
         PAGE_TABLE_L1.0[3] = 0;
-        // 0x100000000-0x13fffffff. Map all entries to 0-0x200000 for testing.
+        // 0x100000000-0x13fffffff.
         PAGE_TABLE_L1.0[4] =
             PAGE_TABLE_L2_100000000_13FFFFFFF.0.as_ptr() as u64 | 3;
 
@@ -71,15 +71,16 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
             let baddr = (i * 0x200000) as u64;
             *entry = match baddr {
                 // ARM memory (normal memory, cacheable).
-                ..=0x3bffffff => tmpl_normal_wbrawa | 1 | baddr,
+                ..=0x3bffffff => tmpl_normal_wbwara | 1 | baddr,
                 // VC memory (device memory).
                 0x3c000000.. => tmpl_dev_ngnrne | 1 | baddr,
             };
         }
 
-        // Level 2 0x100000000-0x13fffffff: 2MB entries.
+        // Level 2 0x100000000-0x13fffffff: 2MB entries. Map all entries to
+        // 0-0x200000 for testing.
         for entry in PAGE_TABLE_L2_100000000_13FFFFFFF.0.iter_mut() {
-            *entry = tmpl_normal_wbrawa | 1 | 0;
+            *entry = tmpl_normal_wbwara | 1 | 0;
         }
     }
 
