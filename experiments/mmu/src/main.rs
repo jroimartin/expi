@@ -51,20 +51,23 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
     // Fill page tables.
     unsafe {
         // Level 1: 1GB entries.
+
         // 0x00000000-0x3fffffff.
         PAGE_TABLE_L1.0[0] =
             PAGE_TABLE_L2_00000000_3FFFFFFF.0.as_ptr() as u64 | 3;
         // 0x40000000-0x7fffffff. Peripherals (device memory).
         PAGE_TABLE_L1.0[1] = tmpl_dev_ngnrne | 1 | 0x40000000;
-        // 0x80000000-0xbfffffff.
-        PAGE_TABLE_L1.0[2] = 0;
-        // 0xc0000000-0xffffffff.
-        PAGE_TABLE_L1.0[3] = 0;
+        // 0x80000000-0xbfffffff. Peripherals (device memory).
+        PAGE_TABLE_L1.0[2] = tmpl_dev_ngnrne | 1 | 0x40000000;
+        // 0xc0000000-0xffffffff. Peripherals (device memory).
+        PAGE_TABLE_L1.0[3] = tmpl_dev_ngnrne | 1 | 0x40000000;
         // 0x100000000-0x13fffffff.
         PAGE_TABLE_L1.0[4] =
             PAGE_TABLE_L2_100000000_13FFFFFFF.0.as_ptr() as u64 | 3;
 
-        // Level 2 0x00000000-0x3fffffff: 2MB entries.
+        // Level 2: 2MB entries.
+
+        // 0x00000000-0x3fffffff.
         for (i, entry) in
             PAGE_TABLE_L2_00000000_3FFFFFFF.0.iter_mut().enumerate()
         {
@@ -77,8 +80,7 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
             };
         }
 
-        // Level 2 0x100000000-0x13fffffff: 2MB entries. Map all entries to
-        // 0-0x200000 for testing.
+        // 0x100000000-0x13fffffff. Map all entries to 0-0x200000 for testing.
         for entry in PAGE_TABLE_L2_100000000_13FFFFFFF.0.iter_mut() {
             *entry = tmpl_normal_wbwara | 1 | 0;
         }
