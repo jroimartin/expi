@@ -52,7 +52,7 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
     // IPS = 0: 32-bit IPA space.
     unsafe { asm!("msr tcr_el2, {}", in(reg) tcr_el2) };
 
-    // Ensure changes to system register are visible before MMU enabled.
+    // Ensure changes to system registers are visible before MMU is enabled.
     unsafe { asm!("isb") };
 
     // Invalidate TLBs.
@@ -143,7 +143,7 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
             core::ptr::read_volatile(0x100401100 as *mut u32)
         );
         println!(
-            "read 0x1100 (mmu): {:#x}",
+            "read 0x1100 (mmu enabled): {:#x}",
             core::ptr::read_volatile(0x1100 as *mut u32)
         );
     }
@@ -161,7 +161,7 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
 
     unsafe {
         println!(
-            "read 0x1100 (no mmu): {:#x}",
+            "read 0x1100 (mmu disabled): {:#x}",
             core::ptr::read_volatile(0x1100 as *mut u32)
         );
     }
