@@ -68,7 +68,7 @@ unsafe extern "C" fn _start() -> ! {
                 ldr x5, =0x1000
                 str x0, [x5]
 
-                // Reserve an initial stack of approximately 0x80000 bytes for
+                // Allocate an initial stack of approximately 0x80000 bytes for
                 // core 0. This is a temporary stack used by `_globals_init`.
                 ldr x5, =0x80000
                 mov sp, x5
@@ -119,7 +119,7 @@ unsafe extern "C" fn _mp_start() -> ! {
                 mrs x5, mpidr_el1
                 and x5, x5, #0xff
 
-                // Reserve stack.
+                // Set stack pointer.
                 add x5, x5, #1
                 mul x5, x5, x2
                 sub x5, x1, x5
