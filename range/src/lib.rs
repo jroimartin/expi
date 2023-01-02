@@ -280,25 +280,17 @@ impl RangeSet {
 
     /// Returns the sum of the size of all the ranges in the `RangeSet`.
     pub fn size(&self) -> u64 {
-        self.ranges[..self.in_use].iter().map(Range::size).sum()
+        self.ranges().iter().map(Range::size).sum()
     }
 
-    /// Lowest start point in the [`RangeSet`].
+    /// Returns the lowest start point of the [`RangeSet`].
     pub fn start(&self) -> Option<u64> {
-        if self.in_use == 0 {
-            return None;
-        }
-
-        Some(self.ranges[0].start())
+        self.ranges().first().and_then(|x| Some(x.start()))
     }
 
-    /// Highest end point in the [`RangeSet`].
+    /// Returns the highest end point of the [`RangeSet`].
     pub fn end(&self) -> Option<u64> {
-        if self.in_use == 0 {
-            return None;
-        }
-
-        Some(self.ranges[self.in_use - 1].end())
+        self.ranges().last().and_then(|x| Some(x.end()))
     }
 }
 
@@ -851,19 +843,17 @@ mod tests {
     #[test]
     fn test_rangeset_start() {
         let mut rangeset = RangeSet::new();
-        rangeset.insert(Range::new(10, 35).unwrap()).unwrap();
-        rangeset.insert(Range::new(5, 10).unwrap()).unwrap();
         rangeset.insert(Range::new(25, 30).unwrap()).unwrap();
+        rangeset.insert(Range::new(5, 10).unwrap()).unwrap();
         assert_eq!(rangeset.start(), Some(5));
     }
 
     #[test]
     fn test_rangeset_end() {
         let mut rangeset = RangeSet::new();
-        rangeset.insert(Range::new(10, 35).unwrap()).unwrap();
-        rangeset.insert(Range::new(5, 10).unwrap()).unwrap();
         rangeset.insert(Range::new(25, 30).unwrap()).unwrap();
-        assert_eq!(rangeset.end(), Some(35));
+        rangeset.insert(Range::new(5, 10).unwrap()).unwrap();
+        assert_eq!(rangeset.end(), Some(30));
     }
 
     #[test]
