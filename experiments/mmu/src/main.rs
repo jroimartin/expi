@@ -10,11 +10,17 @@
 use core::arch::asm;
 use core::panic::PanicInfo;
 
+use expi::uart;
 use expi::{print, println};
 
 /// Kernel main function.
 #[no_mangle]
 extern "C" fn kernel_main(_dtb_ptr32: u32) {
+    // Initialize the UART.
+    if uart::init().is_err() {
+        return;
+    }
+
     println!("expi");
 
     // Set l1 page table base address.
