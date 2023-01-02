@@ -70,8 +70,8 @@ unsafe extern "C" fn _start() -> ! {
 
                 // Reserve an initial stack of approximately 0x80000 bytes for
                 // core 0. This is a temporary stack used by `_globals_init`.
-				ldr x5, =0x80000
-				mov sp, x5
+                ldr x5, =0x80000
+                mov sp, x5
 
                 // Initialize globals and get stack top address.
                 bl _globals_init
@@ -85,13 +85,13 @@ unsafe extern "C" fn _start() -> ! {
                 // 0xe0 (core 1), 0xe8 (core 2) and 0xf0 (core 3) if not zero.
                 // Implementation:
                 // https://github.com/raspberrypi/tools/blob/master/armstubs/armstub8.S
-				adr x5, _mp_start
-				mov x6, #0xe0
-				str x5, [x6], #0x8
-				str x5, [x6], #0x8
-				str x5, [x6], #0x8
+                adr x5, _mp_start
+                mov x6, #0xe0
+                str x5, [x6], #0x8
+                str x5, [x6], #0x8
+                str x5, [x6], #0x8
 
-				sev
+                sev
 
                 b _mp_start
         "#,
@@ -116,20 +116,20 @@ unsafe extern "C" fn _mp_start() -> ! {
                 ldr x1, [x5]
 
                 // Get core ID.
-				mrs x5, mpidr_el1
-				and x5, x5, #0xff
+                mrs x5, mpidr_el1
+                and x5, x5, #0xff
 
                 // Reserve stack.
-				add x5, x5, #1
-				mul x5, x5, x2
+                add x5, x5, #1
+                mul x5, x5, x2
                 sub x5, x1, x5
                 add x5, x5, #1
-				mov sp, x5
+                mov sp, x5
 
-				bl kernel_main
+                bl kernel_main
 
-			2:
-				b 2b
+            2:
+                b 2b
         "#,
         in("x2") STACK_SIZE,
         options(noreturn),
