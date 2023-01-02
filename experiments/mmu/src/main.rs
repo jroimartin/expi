@@ -17,6 +17,10 @@ use expi::{print, println};
 extern "C" fn kernel_main(_dtb_ptr32: u32) {
     println!("expi");
 
+    // Set l1 page table base address.
+    let ttbr0_el2 = unsafe { PAGE_TABLE_L1.0.as_ptr() as u64 };
+    unsafe { asm!( "msr ttbr0_el2, {}", in(reg) ttbr0_el2) };
+
     // Set up memory attributes.
     // 0: b01000100 -> Normal memory, Inner and Outer Non-Cacheable.
     // 1: b11111111 -> Normal memory, Inner and Outer WB WA RA.
@@ -32,21 +36,36 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
     // The MMU is configured to store the translation tables in cacheable
     // memory.
     // Inner cacheability: Normal memory, Inner WB WA RA.
-    tcr_el2 |= 0x1 << 8;
+    tcr_el2 |= 1 << 8;
     // Outer cacheability: Normal memory, Outer WB WA RA.
-    tcr_el2 |= 0x1 << 10;
+    tcr_el2 |= 1 << 10;
     // Inner shareable.
-    tcr_el2 |= 0x3 << 12;
+    tcr_el2 |= 3 << 12;
     // TBI = 0: Top byte not ignored.
     // TG0 = 0: 4KB Granule.
     // IPS = 0: 32-bit IPA space.
     unsafe { asm!("msr tcr_el2, {}", in(reg) tcr_el2) };
 
+    // Ensure changes to system register are visible before MMU enabled.
+    unsafe { asm!("isb") };
+
+    // Invalidate TLBs.
+    unsafe {
+        asm!(
+            r#"
+                tlbi alle2
+                dsb sy
+                isb
+            "#
+        );
+    }
+
     // Template for device memory attributes: UXN=1 PXN=1 AF=1 Indx=2.
     let tmpl_dev_ngnrne: u64 = (1 << 54) | (1 << 53) | (1 << 10) | (2 << 2);
 
-    // Template for normal cacheable memory attributes: AF=1 Indx=1.
-    let tmpl_normal_wbwara: u64 = (1 << 10) | (1 << 2);
+    // Template for normal cacheable memory attributes: AF=1 SH=3 (inner)
+    // Indx=1.
+    let tmpl_normal_wbwara: u64 = (1 << 10) | (3 << 8) | (1 << 2);
 
     // Fill page tables.
     unsafe {
@@ -84,21 +103,8 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
         for entry in PAGE_TABLE_L2_100000000_13FFFFFFF.0.iter_mut() {
             *entry = tmpl_normal_wbwara | 1 | 0;
         }
-    }
 
-    // Set l1 page table base address.
-    let ttbr0_el2 = unsafe { PAGE_TABLE_L1.0.as_ptr() as u64 };
-    unsafe { asm!( "msr ttbr0_el2, {}", in(reg) ttbr0_el2) };
-
-    // Invalidate TLBs.
-    unsafe {
-        asm!(
-            r#"
-                tlbi alle2
-                dsb sy
-                isb
-            "#
-        )
+        asm!("dsb sy");
     }
 
     // Enable MMU (M).
@@ -107,28 +113,45 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
     sctlr_el2 |= 1 << 2;
     // Enable instruction caches (I).
     sctlr_el2 |= 1 << 12;
-    unsafe { asm!("msr sctlr_el2, {}", in(reg) sctlr_el2) };
+
+    unsafe {
+        asm!(
+            r#"
+                msr sctlr_el2, {}
+                isb
+            "#,
+            in(reg) sctlr_el2,
+        );
+    }
 
     unsafe {
         println!("writing 0x11223344 to 0x100601100...");
         core::ptr::write_volatile(0x100601100 as *mut u32, 0x11223344);
 
         println!(
-            "read 0x1100 (mmu): {:#x}",
-            core::ptr::read_volatile(0x1100 as *mut u32)
-        );
-        println!(
-            "read 0x100201100 (mmu): {:#x}",
+            "read 0x100201100: {:#x}",
             core::ptr::read_volatile(0x100201100 as *mut u32)
         );
         println!(
-            "read 0x100401100 (mmu): {:#x}",
+            "read 0x100401100: {:#x}",
             core::ptr::read_volatile(0x100401100 as *mut u32)
+        );
+        println!(
+            "read 0x1100 (mmu): {:#x}",
+            core::ptr::read_volatile(0x1100 as *mut u32)
         );
     }
 
     // Disable MMU.
-    unsafe { asm!("msr sctlr_el2, {}", in(reg) 0u64) };
+    unsafe {
+        asm!(
+            r#"
+                msr sctlr_el2, {}
+                isb
+            "#,
+            in(reg) 0u64,
+        );
+    }
 
     unsafe {
         println!(
