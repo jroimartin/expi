@@ -40,32 +40,204 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let fname_rust = &item_fn.sig.ident;
     let fname_c = format_ident!("_expi_c_{}", fname_rust);
 
-    let entry_code = format!(
+    let start_code = format!(
         r#"
+                // Allocate an initial stack of approximately 0x80000 bytes.
+                // This is a temporary stack used by `_globals_init`.
                 ldr x5, =0x80000
                 mov sp, x5
+
+                // Save dtb_ptr32.
+                str x0, [sp, #-8]!
+
+                // Initialize globals and get stack top address.
+                bl _expi_globals_init
+                mov x5, x0
+
+                // Restore dtb_ptr32.
+                ldr x0, [sp], #8
+
+                // Set stack pointer.
+                mov sp, x5
+
                 bl {fname_c}
+
             1:
                 b 1b
         "#
     );
 
     let tokens = quote! {
+        #[no_mangle]
+        extern "C" fn _expi_globals_init(dtb_ptr32: u32) -> u64 {
+            match expi::globals::init(dtb_ptr32) {
+                Ok(_) => {}
+                Err(expi::globals::Error::UartError(_)) => loop {},
+                Err(err) => panic!("init error: {}", err),
+            }
+
+            let end = expi::globals::GLOBALS
+                .free_memory()
+                .lock()
+                .as_mut()
+                .expect("uninitialized allocator")
+                .end()
+                .expect("unknown stack top address");
+
+            end + 1
+        }
+
         #[link_section = ".entry"]
         #[no_mangle]
         #[naked]
         unsafe extern "C" fn _start() -> ! {
-            core::arch::asm!(#entry_code, options(noreturn))
+            core::arch::asm!(#start_code, options(noreturn))
         }
 
         #[no_mangle]
         unsafe extern "C" fn #fname_c(dtb_ptr32: u32) {
+            #fname_rust(dtb_ptr32)
+        }
+
+        #[global_allocator]
+        static GLOBAL_ALLOCATOR: expi::mm::GlobalAllocator =
+            expi::mm::GlobalAllocator;
+
+        #[panic_handler]
+        fn panic(info: &core::panic::PanicInfo) -> ! {
+            expi::print!("\n\n!!! PANIC !!!\n\n");
+
+            if let Some(location) = info.location() {
+                expi::print!("{}:{}", location.file(), location.line());
+            }
+
+            if let Some(message) = info.message() {
+                expi::println!(": {}", message);
+            } else {
+                expi::println!();
+            }
+
+            loop {}
+        }
+
+        #item_fn
+    };
+
+    tokens.into()
+}
+
+/// Size of the stack allocated for each core.
+const CORE_STACK_SIZE: usize = 32 * 1024 * 1024;
+
+/// The multi-processing version of [`macro@entrypoint`].
+///
+/// It boots the four cores allocating a fixed size stack for each one.
+#[proc_macro_attribute]
+pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let item_fn = parse_macro_input!(item as ItemFn);
+
+    let fname_rust = &item_fn.sig.ident;
+    let fname_c = format_ident!("_expi_c_{}", fname_rust);
+
+    let start_mp_code = format!(
+        r#"
+                // Load dtb_ptr32.
+                ldr x5, =0x1000
+                ldr x0, [x5]
+
+                // Load stack top address.
+                ldr x5, =0x1008
+                ldr x1, [x5]
+
+                // Load stack size.
+                ldr x2, ={CORE_STACK_SIZE:#x}
+
+                // Get core ID.
+                mrs x5, mpidr_el1
+                and x5, x5, #0xff
+
+                // Set stack pointer.
+                add x5, x5, #1
+                mul x5, x5, x2
+                sub x5, x1, x5
+                mov sp, x5
+
+                bl {fname_c}
+
+            1:
+                b 1b
+        "#,
+    );
+
+    let tokens = quote! {
+        #[no_mangle]
+        extern "C" fn _expi_globals_init(dtb_ptr32: u32) -> u64 {
             match expi::globals::init(dtb_ptr32) {
                 Ok(_) => {}
-                Err(expi::globals::Error::UartError(_)) => loop{},
+                Err(expi::globals::Error::UartError(_)) => loop {},
                 Err(err) => panic!("init error: {}", err),
             }
 
+            let end = expi::globals::GLOBALS
+                .free_memory()
+                .lock()
+                .as_mut()
+                .expect("uninitialized allocator")
+                .end()
+                .expect("unknown stack top address");
+
+            end + 1
+        }
+
+        #[link_section = ".entry"]
+        #[no_mangle]
+        #[naked]
+        unsafe extern "C" fn _start() -> ! {
+            core::arch::asm!(
+                r#"
+                    // Save dtb_ptr32 at 0x1000.
+                    ldr x5, =0x1000
+                    str x0, [x5]
+
+                    // Allocate an initial stack of approximately 0x80000 bytes
+                    // for core 0. This is a temporary stack used by
+                    // `_globals_init`.
+                    ldr x5, =0x80000
+                    mov sp, x5
+
+                    // Initialize globals and get stack top address.
+                    bl _expi_globals_init
+
+                    // Save stack top address at 0x1008.
+                    ldr x5, =0x1008
+                    str x0, [x5]
+
+                    // All cores but core 0 are waiting for a wakeup event.
+                    // Once the event is received, they jump to the address
+                    // stored at 0xe0 (core 1), 0xe8 (core 2) and 0xf0 (core 3)
+                    // if not zero. Implementation:
+                    // https://github.com/raspberrypi/tools/blob/master/armstubs/armstub8.S
+                    adr x5, _expi_start_mp
+                    mov x6, #0xe0
+                    str x5, [x6], #0x8
+                    str x5, [x6], #0x8
+                    str x5, [x6], #0x8
+
+                    sev
+
+                    b _expi_start_mp
+                "#,
+                options(noreturn))
+        }
+
+        #[no_mangle]
+        #[naked]
+        unsafe extern "C" fn _expi_start_mp() -> ! {
+            core::arch::asm!(#start_mp_code, options(noreturn))
+        }
+
+        #[no_mangle]
+        unsafe extern "C" fn #fname_c(dtb_ptr32: u32) {
             #fname_rust(dtb_ptr32)
         }
 
