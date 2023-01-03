@@ -285,12 +285,12 @@ impl RangeSet {
 
     /// Returns the lowest start point of the [`RangeSet`].
     pub fn start(&self) -> Option<u64> {
-        self.ranges().first().and_then(|x| Some(x.start()))
+        self.ranges().first().map(|x| x.start())
     }
 
     /// Returns the highest end point of the [`RangeSet`].
     pub fn end(&self) -> Option<u64> {
-        self.ranges().last().and_then(|x| Some(x.end()))
+        self.ranges().last().map(|x| x.end())
     }
 }
 
