@@ -23,7 +23,10 @@ echo '---'
 
 dtb="$(dirname $0)/bcm2710-rpi-3-b.dtb"
 
+QEMUFLAGS=${QEMUFLAGS:-}
+
 qemu-system-aarch64 \
+	${QEMUFLAGS} \
 	-nodefaults \
 	-nographic \
 	-cpu cortex-a53 \
