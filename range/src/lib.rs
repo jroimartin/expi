@@ -101,6 +101,12 @@ pub struct RangeSet {
     in_use: usize,
 }
 
+impl Default for RangeSet {
+    fn default() -> Self {
+        RangeSet::new()
+    }
+}
+
 impl RangeSet {
     /// Returns an empty `RangeSet`.
     pub fn new() -> Self {
@@ -280,23 +286,17 @@ impl RangeSet {
 
     /// Returns the sum of the size of all the ranges in the `RangeSet`.
     pub fn size(&self) -> u64 {
-        self.ranges().iter().map(Range::size).sum()
+        self.ranges().iter().map(|r| r.size()).sum()
     }
 
     /// Returns the lowest start point of the [`RangeSet`].
     pub fn start(&self) -> Option<u64> {
-        self.ranges().first().map(|x| x.start())
+        self.ranges().first().map(|r| r.start())
     }
 
     /// Returns the highest end point of the [`RangeSet`].
     pub fn end(&self) -> Option<u64> {
-        self.ranges().last().map(|x| x.end())
-    }
-}
-
-impl Default for RangeSet {
-    fn default() -> Self {
-        RangeSet::new()
+        self.ranges().last().map(|r| r.end())
     }
 }
 
