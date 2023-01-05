@@ -228,14 +228,14 @@ pub enum Event {
 
 /// Event status.
 #[derive(Debug, Copy, Clone)]
-pub enum EventStatus {
+enum EventStatus {
     /// The programmed event has been detected.
     Detected,
 
     /// The event has not been detected.
     NotDetected,
 
-    /// Unknown level.
+    /// Unknown event status.
     Unknown,
 }
 
@@ -256,6 +256,7 @@ impl From<bool> for EventStatus {
 }
 
 /// Event status of the GPIO pins.
+#[derive(Debug)]
 pub struct Events([EventStatus; NPINS]);
 
 impl Events {
