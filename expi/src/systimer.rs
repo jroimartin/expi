@@ -1,12 +1,4 @@
 //! System Timer driver.
-//!
-//! For more information, please see [BCM2835 ARM Peripherals specification].
-//! The underlying architecture of the BCM2837 is identical to the BCM2835.
-//! This specification contains a number of errors. However there is a list of
-//! currently known [errata].
-//!
-//! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
-//! [errata]: https://elinux.org/BCM2835_datasheet_errata
 
 use core::fmt;
 

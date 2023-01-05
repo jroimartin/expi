@@ -1,8 +1,4 @@
 //! Memory mapped I/O operations.
-//!
-//! For more information, please see [BCM2835 ARM Peripherals specification].
-//!
-//! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
 
 use core::ptr::{read_volatile, write_volatile};
 

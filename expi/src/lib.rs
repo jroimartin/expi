@@ -4,13 +4,18 @@
 //! typically run in EL2. Thus, the functionalities exposed by this crate are
 //! in many cases (e.g. exception handling) limited to this use case.
 //!
+//! Peripheral drivers are based on the [BCM2835 ARM Peripherals
+//! specification]. The underlying architecture of the BCM2837 is identical to
+//! the BCM2835. It is imporatnt to note that this specification contains a
+//! number of errors. However there is a list of currently known [errata].
+//!
 //! Although there are other methods, the documentation in this crate expects
 //! you to use [flatelf] to generate the kernel image and will provide you with
 //! the required linker arguments to make it possible.
 //!
 //! flatelf does not apply relocations, so we need to configure the relocation
 //! model as static. Also, we won't make assumptions about addresses and sizes
-//! of sections, meaning that we will configure the code-model as large.
+//! of sections, meaning that we will configure the code model as large.
 //! Finally we will turn off page alignment of sections to remove padding and
 //! get smaller kernel images, which can be done with the linker argument
 //! `--nmagic`.
@@ -27,6 +32,8 @@
 //! ]
 //! ```
 //!
+//! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
+//! [errata]: https://elinux.org/BCM2835_datasheet_errata
 //! [flatelf]: https://github.com/jroimartin/flatelf/
 
 #![no_std]
