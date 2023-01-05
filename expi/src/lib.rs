@@ -42,4 +42,5 @@ pub mod mm;
 pub mod mmio;
 pub mod print;
 pub mod ptr;
+pub mod systimer;
 pub mod uart;
