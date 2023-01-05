@@ -21,6 +21,7 @@ use crate::mmio;
 ///     compatible = "brcm,bcm2835-system-timer";
 ///     reg = <0x7e003000 0x1000>;
 ///     ...
+///     clock-frequency = <1000000>;
 /// };
 /// ```
 ///
@@ -41,6 +42,9 @@ const SYSTIMER_CMP_BASE: usize = SYSTIMER_BASE + 0xc;
 
 /// Number of System Timers.
 const NTIMERS: usize = 4;
+
+/// The System Timer runs at 1MHz.
+pub const CLOCK_FREQ: u32 = 1_000_000;
 
 /// System Timer error.
 #[derive(Debug)]

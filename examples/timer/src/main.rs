@@ -9,11 +9,11 @@ use core::arch::asm;
 use expi::cpu::exceptions::{self, Exception, Interrupt};
 use expi::intc::{self, IrqSource};
 use expi::println;
-use expi_macros::{entrypoint, exception_handler, exception_vector_table};
 use expi::systimer::{self, SysTimer};
+use expi_macros::{entrypoint, exception_handler, exception_vector_table};
 
 /// Time between interrupts.
-const TIME: u32 = 0x100000;
+const TIME: u32 = 5 * systimer::CLOCK_FREQ; // 5s
 
 /// Kernel main function.
 #[entrypoint]
