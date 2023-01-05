@@ -2,8 +2,11 @@
 //!
 //! For more information, please see [BCM2835 ARM Peripherals specification].
 //! The underlying architecture of the BCM2837 is identical to the BCM2835.
+//! This specification contains a number of errors. However there is a list of
+//! currently known [errata].
 //!
 //! [BCM2835 ARM Peripherals specification]: https://datasheets.raspberrypi.com/bcm2835/bcm2835-peripherals.pdf
+//! [errata]: https://elinux.org/BCM2835_datasheet_errata
 
 use core::fmt;
 
@@ -17,12 +20,11 @@ use crate::mmio;
 /// &intc {
 ///     compatible = "brcm,bcm2836-armctrl-ic";
 ///     reg = <0x7e00b200 0x200>;
-///     interrupt-parent = <&local_intc>;
-///     interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+///     ...
 /// };
 /// ```
 ///
-/// [/arch/arm/boot/dts/bcm2837.dtsi]: https://github.com/raspberrypi/linux/blob/770d94882ac145c81af72e9a37180806c3f70bbd/arch/arm/boot/dts/bcm2837.dtsi
+/// [/arch/arm/boot/dts/bcm2837.dtsi]: https://github.com/raspberrypi/linux/blob/770d94882ac145c81af72e9a37180806c3f70bbd/arch/arm/boot/dts/bcm2837.dtsi#L80-L85
 const INTC_BASE: usize = 0xb200;
 
 /// Address of the basic pending register.
@@ -80,6 +82,18 @@ impl TryFrom<usize> for GpuIrq {
 /// BCM2837 IRQ source.
 #[derive(Debug, Copy, Clone)]
 pub enum IrqSource {
+    /// System Timer 0.
+    SysTimer0,
+
+    /// System Timer 1.
+    SysTimer1,
+
+    /// System Timer 2.
+    SysTimer2,
+
+    /// System Timer 3.
+    SysTimer3,
+
     /// Aux.
     Aux,
 
@@ -143,6 +157,10 @@ impl TryFrom<IrqSource> for GpuIrq {
 
     fn try_from(src: IrqSource) -> Result<GpuIrq, Error> {
         let irq = match src {
+            IrqSource::SysTimer0 => GpuIrq(0),
+            IrqSource::SysTimer1 => GpuIrq(1),
+            IrqSource::SysTimer2 => GpuIrq(2),
+            IrqSource::SysTimer3 => GpuIrq(3),
             IrqSource::Aux => GpuIrq(29),
             IrqSource::I2cSpiSlv => GpuIrq(43),
             IrqSource::Pwa0 => GpuIrq(45),
@@ -189,6 +207,10 @@ struct IrqBit(IrqReg, usize);
 impl From<IrqSource> for IrqBit {
     fn from(src: IrqSource) -> IrqBit {
         match src {
+            IrqSource::SysTimer0 => IrqBit(IrqReg::Gpu1, 0),
+            IrqSource::SysTimer1 => IrqBit(IrqReg::Gpu1, 1),
+            IrqSource::SysTimer2 => IrqBit(IrqReg::Gpu1, 2),
+            IrqSource::SysTimer3 => IrqBit(IrqReg::Gpu1, 3),
             IrqSource::Aux => IrqBit(IrqReg::Gpu1, 29),
             IrqSource::I2cSpiSlv => IrqBit(IrqReg::Gpu2, 11),
             IrqSource::Pwa0 => IrqBit(IrqReg::Gpu2, 13),
@@ -222,6 +244,10 @@ struct FiqSource(usize);
 impl From<IrqSource> for FiqSource {
     fn from(src: IrqSource) -> FiqSource {
         match src {
+            IrqSource::SysTimer0 => FiqSource(0),
+            IrqSource::SysTimer1 => FiqSource(1),
+            IrqSource::SysTimer2 => FiqSource(2),
+            IrqSource::SysTimer3 => FiqSource(3),
             IrqSource::Aux => FiqSource(29),
             IrqSource::I2cSpiSlv => FiqSource(43),
             IrqSource::Pwa0 => FiqSource(45),
@@ -301,7 +327,9 @@ pub struct BasicStatus {
     /// Illegal access type 0 IRQ pending.
     illegal_access_0: IrqStatus,
 
-    /// GPU IRQ pending in the range 0:31, which contains: [IrqSource::Aux].
+    /// GPU IRQ pending in the range 0:31, which contains:
+    /// [IrqSource::SysTimer0], [IrqSource::SysTimer1], [IrqSource::SysTimer2],
+    /// [IrqSource::SysTimer3] and [IrqSource::Aux].
     pending_reg_1: IrqStatus,
 
     /// GPU IRQ pending in the range 32:63, which contains:
@@ -386,7 +414,8 @@ impl BasicStatus {
     }
 
     /// Returns true if a GPU IRQ in the range 0:31 is pending. This includes:
-    /// [IrqSource::Aux].
+    /// [IrqSource::SysTimer0], [IrqSource::SysTimer1], [IrqSource::SysTimer2],
+    /// [IrqSource::SysTimer3] and [IrqSource::Aux].
     pub fn pending_reg_1(&self) -> bool {
         matches!(self.pending_reg_1, IrqStatus::Pending)
     }
