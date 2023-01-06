@@ -1,14 +1,13 @@
 //! Cycle counting experiment.
 
-#![feature(naked_functions, panic_info_message)]
+#![feature(naked_functions)]
 #![no_std]
 #![no_main]
 
 use core::arch::asm;
-use core::panic::PanicInfo;
 
+use expi::println;
 use expi::uart;
-use expi::{print, println};
 
 /// Population size used to calculate stats.
 const SIZE: usize = 1000;
@@ -125,22 +124,4 @@ unsafe extern "C" fn _start() -> ! {
         "#,
         options(noreturn),
     )
-}
-
-/// Panic handler.
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    print!("\n\n!!! PANIC !!!\n\n");
-
-    if let Some(location) = info.location() {
-        print!("{}:{}", location.file(), location.line());
-    }
-
-    if let Some(message) = info.message() {
-        println!(": {}", message);
-    } else {
-        println!();
-    }
-
-    loop {}
 }

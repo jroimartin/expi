@@ -3,6 +3,14 @@
 version = 3
 
 [[package]]
+name = "allocator"
+version = "0.1.0"
+dependencies = [
+ "expi",
+ "expi_macros",
+]
+
+[[package]]
 name = "expi"
 version = "0.1.0"
 dependencies = [
@@ -16,14 +24,6 @@ version = "0.1.0"
 dependencies = [
  "quote",
  "syn",
-]
-
-[[package]]
-name = "mm_macros"
-version = "0.1.0"
-dependencies = [
- "expi",
- "expi_macros",
 ]
 
 [[package]]

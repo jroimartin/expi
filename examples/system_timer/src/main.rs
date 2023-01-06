@@ -1,6 +1,6 @@
 //! System Timer.
 
-#![feature(naked_functions, panic_info_message)]
+#![feature(naked_functions)]
 #![no_std]
 #![no_main]
 

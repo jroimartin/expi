@@ -1,43 +1,12 @@
 //! Global resources.
 
-use core::fmt;
+use core::panic::PanicInfo;
 
 use crate::mm;
-use crate::uart;
+use crate::{print, println};
 
 use mutex::TicketMutex;
 use range::RangeSet;
-
-/// Globals error.
-#[derive(Debug)]
-pub enum Error {
-    /// UART error.
-    UartError(uart::Error),
-
-    /// Allocator error.
-    AllocError(mm::AllocError),
-}
-
-impl From<uart::Error> for Error {
-    fn from(err: uart::Error) -> Error {
-        Error::UartError(err)
-    }
-}
-
-impl From<mm::AllocError> for Error {
-    fn from(err: mm::AllocError) -> Error {
-        Error::AllocError(err)
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::UartError(err) => write!(f, "UART error: {err}"),
-            Error::AllocError(err) => write!(f, "allocator error: {err}"),
-        }
-    }
-}
 
 /// Contains the global resources shared between modules.
 pub struct GlobalResources {
@@ -62,9 +31,24 @@ impl GlobalResources {
     }
 }
 
-/// Initialize global resources like UART, global allocator, etc.
-pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
-    uart::init()?;
-    mm::init(dtb_ptr32)?;
-    Ok(())
+/// Global Allocator.
+#[global_allocator]
+static GLOBAL_ALLOCATOR: mm::GlobalAllocator = mm::GlobalAllocator;
+
+/// Panic handler.
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    print!("\n\n!!! PANIC !!!\n\n");
+
+    if let Some(location) = info.location() {
+        print!("{}:{}", location.file(), location.line());
+    }
+
+    if let Some(message) = info.message() {
+        println!(": {}", message);
+    } else {
+        println!();
+    }
+
+    loop {}
 }

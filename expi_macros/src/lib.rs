@@ -12,9 +12,8 @@ use syn::{parse_macro_input, Ident, ItemFn, Token};
 
 /// Generates the boilerplate required to call the provided function on boot.
 ///
-/// It also generates a panic handler and a global memory allocator. It tries
-/// to initialize the global resources. If UART initialization fails, it enters
-/// an infinite loop, otherwise it panics.
+/// It tries to initialize the global resources. If UART initialization fails,
+/// it enters an infinite loop, otherwise it panics.
 ///
 /// Under the hood it specifies that the entrypoint must be placed into a
 /// section called `.entry`.
@@ -70,9 +69,9 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let tokens = quote! {
         #[no_mangle]
         extern "C" fn _expi_globals_init(dtb_ptr32: u32) -> u64 {
-            match expi::globals::init(dtb_ptr32) {
+            match expi::init(dtb_ptr32) {
                 Ok(_) => {}
-                Err(expi::globals::Error::UartError(_)) => loop {},
+                Err(expi::Error::UartError(_)) => loop {},
                 Err(err) => panic!("init error: {}", err),
             }
 
@@ -97,27 +96,6 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #[no_mangle]
         unsafe extern "C" fn #fname_c(dtb_ptr32: u32) {
             #fname_rust(dtb_ptr32)
-        }
-
-        #[global_allocator]
-        static GLOBAL_ALLOCATOR: expi::mm::GlobalAllocator =
-            expi::mm::GlobalAllocator;
-
-        #[panic_handler]
-        fn panic(info: &core::panic::PanicInfo) -> ! {
-            expi::print!("\n\n!!! PANIC !!!\n\n");
-
-            if let Some(location) = info.location() {
-                expi::print!("{}:{}", location.file(), location.line());
-            }
-
-            if let Some(message) = info.message() {
-                expi::println!(": {}", message);
-            } else {
-                expi::println!();
-            }
-
-            loop {}
         }
 
         #item_fn
@@ -166,15 +144,15 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             1:
                 b 1b
-        "#,
+        "#
     );
 
     let tokens = quote! {
         #[no_mangle]
         extern "C" fn _expi_globals_init(dtb_ptr32: u32) -> u64 {
-            match expi::globals::init(dtb_ptr32) {
+            match expi::init(dtb_ptr32) {
                 Ok(_) => {}
-                Err(expi::globals::Error::UartError(_)) => loop {},
+                Err(expi::Error::UartError(_)) => loop {},
                 Err(err) => panic!("init error: {}", err),
             }
 
@@ -239,27 +217,6 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #[no_mangle]
         unsafe extern "C" fn #fname_c(dtb_ptr32: u32) {
             #fname_rust(dtb_ptr32)
-        }
-
-        #[global_allocator]
-        static GLOBAL_ALLOCATOR: expi::mm::GlobalAllocator =
-            expi::mm::GlobalAllocator;
-
-        #[panic_handler]
-        fn panic(info: &core::panic::PanicInfo) -> ! {
-            expi::print!("\n\n!!! PANIC !!!\n\n");
-
-            if let Some(location) = info.location() {
-                expi::print!("{}:{}", location.file(), location.line());
-            }
-
-            if let Some(message) = info.message() {
-                expi::println!(": {}", message);
-            } else {
-                expi::println!();
-            }
-
-            loop {}
         }
 
         #item_fn

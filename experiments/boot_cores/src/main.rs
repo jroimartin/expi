@@ -1,15 +1,14 @@
 //! Boot all cores.
 
-#![feature(naked_functions, panic_info_message)]
+#![feature(naked_functions)]
 #![no_std]
 #![no_main]
 
 use core::arch::asm;
-use core::panic::PanicInfo;
 
 use expi::cpu::mp;
 use expi::globals;
-use expi::{print, println};
+use expi::print;
 
 use range::Range;
 
@@ -33,9 +32,9 @@ extern "C" fn kernel_main(_dtb_ptr32: u32) {
 #[no_mangle]
 #[allow(clippy::empty_loop)]
 unsafe extern "C" fn _globals_init(dtb_ptr32: u32) -> u64 {
-    match globals::init(dtb_ptr32) {
+    match expi::init(dtb_ptr32) {
         Ok(_) => {}
-        Err(globals::Error::UartError(_)) => loop {},
+        Err(expi::Error::UartError(_)) => loop {},
         Err(err) => panic!("init error: {}", err),
     }
 
@@ -134,22 +133,4 @@ unsafe extern "C" fn _mp_start() -> ! {
         in("x2") STACK_SIZE,
         options(noreturn),
     )
-}
-
-/// Panic handler.
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    print!("\n\n!!! PANIC !!!\n\n");
-
-    if let Some(location) = info.location() {
-        print!("{}:{}", location.file(), location.line());
-    }
-
-    if let Some(message) = info.message() {
-        println!(": {}", message);
-    } else {
-        println!();
-    }
-
-    loop {}
 }
