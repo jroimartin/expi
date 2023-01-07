@@ -1,0 +1,10 @@
+[package]
+name = "expi_examples"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+expi = { path = "../expi" }
+expi_macros = { path = "../expi_macros" }
+libm = "0.2.6"

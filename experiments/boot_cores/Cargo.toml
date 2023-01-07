@@ -1,9 +1,0 @@
-[package]
-name = "boot_cores"
-version = "0.1.0"
-edition = "2021"
-publish = false
-
-[dependencies]
-expi = { path = "../../expi" }
-range = { path = "../../range" }

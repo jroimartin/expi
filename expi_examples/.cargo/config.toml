@@ -1,0 +1,24 @@
+[build]
+target = "aarch64-unknown-none"
+
+[target.aarch64-unknown-none]
+rustflags = [
+    "-Ccode-model=large",
+    "-Crelocation-model=static",
+    "-Clink-arg=--nmagic",
+    "-Clink-arg=--image-base=0x80000",
+    "-Clink-arg=--section-start=.entry=0x80000",
+    "-Clink-arg=--undefined=_exception_vector_table",
+    "-Clink-arg=--section-start=.exception_vector_table=0x90000",
+]
+runner = "../tools/qemu-run"
+
+[unstable]
+build-std = ["core", "alloc"]
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = "z"

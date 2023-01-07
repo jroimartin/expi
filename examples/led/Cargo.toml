@@ -1,9 +1,0 @@
-[package]
-name = "led"
-version = "0.1.0"
-edition = "2021"
-publish = false
-
-[dependencies]
-expi = { path = "../../expi" }
-expi_macros = { path = "../../expi_macros" }
