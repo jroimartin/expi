@@ -167,6 +167,11 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
             end + 1
         }
 
+        #[no_mangle]
+        extern "C" fn _expi_dcache_clean_inval() {
+            expi::cpu::mmu::dcache_clean_inval_poc(0, 0x2000);
+        }
+
         #[link_section = ".entry"]
         #[no_mangle]
         #[naked]
@@ -200,6 +205,11 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     str x5, [x6], #0x8
                     str x5, [x6], #0x8
                     str x5, [x6], #0x8
+
+                    // Clean and invalidate the first two pages. This is
+                    // required because several global variables used during
+                    // multi-processing intialization live there.
+                    bl _expi_dcache_clean_inval
 
                     sev
 
