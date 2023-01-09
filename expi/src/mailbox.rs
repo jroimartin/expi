@@ -7,6 +7,7 @@
 
 use core::fmt;
 
+use crate::cpu::mmu;
 use crate::mmio;
 
 /// Base address of the mailbox.
@@ -173,6 +174,7 @@ pub fn process_request(tags: &[u32]) -> Result<(), Error> {
         while mmio::read(MBOX_STATUS) & MBOX_STATUS_FULL != 0 {}
 
         // Send the request.
+        mmu::dcache_clean_inval_poc(MBOX_BUFFER.0.as_ptr() as usize, bufsz);
         mmio::write(MBOX_WRITE, data);
 
         // Wait for the request to be processed.
@@ -184,6 +186,7 @@ pub fn process_request(tags: &[u32]) -> Result<(), Error> {
         }
 
         // Check if the request was processed successfully.
+        mmu::dcache_clean_inval_poc(MBOX_BUFFER.0.as_ptr() as usize, bufsz);
         if MBOX_BUFFER.0[1] != MBOX_REQ_OK {
             return Err(Error::RequestFailed);
         }

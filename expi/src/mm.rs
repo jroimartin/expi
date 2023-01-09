@@ -203,6 +203,7 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
         free_mem.remove(rsv)?;
     }
 
+    // Set globals.
     let mut free_mem_mg = GLOBALS.free_memory().lock();
     *free_mem_mg = Some(free_mem);
 

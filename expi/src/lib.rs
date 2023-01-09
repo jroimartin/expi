@@ -86,8 +86,9 @@ impl fmt::Display for Error {
     }
 }
 
-/// Initializes global resources like UART, global allocator, etc.
+/// Initializes global resources like the MMU, UART, global allocator, etc.
 pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
+    cpu::mmu::enable_identity_mapping();
     uart::init()?;
     mm::init(dtb_ptr32)?;
     Ok(())
