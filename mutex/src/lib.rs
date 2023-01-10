@@ -91,7 +91,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mutex_lock() {
+    fn ticket_mutex_lock() {
         let mutex = TicketMutex::new(0);
 
         let mut x = mutex.lock();
