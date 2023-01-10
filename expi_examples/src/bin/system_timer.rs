@@ -20,10 +20,6 @@ const TIME: u32 = 5 * systimer::CLOCK_FREQ; // 5s
 fn kernel_main(_dtb_ptr32: u32) {
     println!("expi");
 
-    // Configure system timer.
-    let timer = SysTimer::try_from(0).unwrap();
-    timer.set_cmp(TIME);
-
     // Mask all interrupts.
     Interrupt::SError.mask();
     Interrupt::Irq.mask();
@@ -41,6 +37,11 @@ fn kernel_main(_dtb_ptr32: u32) {
 
     // Enable System Timer 0 interrupts.
     IrqSource::SysTimer0.enable();
+
+    // Configure system timer.
+    let timer = SysTimer::try_from(0).unwrap();
+    let now = systimer::counter() as u32;
+    timer.set_cmp(now.wrapping_add(TIME));
 
     loop {
         unsafe { asm!("wfi") };
