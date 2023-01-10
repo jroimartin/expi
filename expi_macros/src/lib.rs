@@ -169,7 +169,7 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         #[no_mangle]
         extern "C" fn _expi_dcache_clean_inval() {
-            expi::cpu::mmu::dcache_clean_inval_poc(0, 0x2000);
+            unsafe { expi::cpu::mmu::dcache_clean_inval_poc(0, 0x2000) };
         }
 
         #[link_section = ".entry"]

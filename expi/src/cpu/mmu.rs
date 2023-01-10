@@ -133,7 +133,12 @@ pub fn data_line_size() -> usize {
 
 /// Cleans and invalidates the data cache for a virtual memory region to Point
 /// of Coherency.
-pub fn dcache_clean_inval_poc(va: usize, size: usize) {
+///
+/// # Safety
+///
+/// This function takes an arbitrary virtual address that might require an
+/// address translation from VA to PA, and that translation might fault.
+pub unsafe fn dcache_clean_inval_poc(va: usize, size: usize) {
     let linesz = data_line_size();
     let start = va & !(linesz - 1);
     for addr in (start..va + size).step_by(linesz) {
