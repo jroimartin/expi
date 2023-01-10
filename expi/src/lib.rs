@@ -6,7 +6,7 @@
 //!
 //! Peripheral drivers are based on the [BCM2835 ARM Peripherals
 //! specification]. The underlying architecture of the BCM2837 is identical to
-//! the BCM2835. It is imporatnt to note that this specification contains a
+//! the BCM2835. It is important to note that this specification contains a
 //! number of errors. However there is a list of currently known [errata].
 //!
 //! Although there are other methods, the documentation in this crate expects
