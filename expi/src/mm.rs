@@ -174,6 +174,12 @@ unsafe impl GlobalAlloc for GlobalAllocator {
 
 /// Initializes the global allocator with the list of free memory regions.
 pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
+    let mut free_mem_mg = GLOBALS.free_memory().lock();
+    if free_mem_mg.as_ref().is_some() {
+        // Already initialized.
+        return Ok(());
+    }
+
     let mut free_mem = RangeSet::new();
 
     // Add ARM memory to the free memory RangeSet.
@@ -204,7 +210,6 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
     }
 
     // Set globals.
-    let mut free_mem_mg = GLOBALS.free_memory().lock();
     *free_mem_mg = Some(free_mem);
 
     Ok(())

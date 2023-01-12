@@ -12,8 +12,8 @@ use syn::{parse_macro_input, Ident, ItemFn, Token};
 
 /// Generates the boilerplate required to call the provided function on boot.
 ///
-/// It tries to initialize the global resources. If UART initialization fails,
-/// it enters an infinite loop, otherwise it panics.
+/// It tries to initialize the global resources. If initialization fails, the
+/// kernel will panic.
 ///
 /// Under the hood it specifies that the entrypoint must be placed into a
 /// section called `.entry`.
@@ -41,24 +41,26 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let start_code = format!(
         r#"
-                // Allocate an initial stack of approximately 0x80000 bytes.
-                // This is a temporary stack used by `_globals_init`.
-                ldr x5, =0x80000
-                mov sp, x5
+                // Save dtb_ptr32 into a callee-saved register.
+                mov x19, x0
 
-                // Save dtb_ptr32.
-                str x0, [sp, #-8]!
+                // Allocate an initial stack of approximately 0x80000
+                // bytes. This is a temporary stack used by init functions.
+                ldr x0, =0x80000
+                mov sp, x0
+
+                // Initialize MMU.
+                bl _expi_enable_identity_mapping
 
                 // Initialize globals and get stack top address.
+                mov x0, x19
                 bl _expi_globals_init
-                mov x5, x0
-
-                // Restore dtb_ptr32.
-                ldr x0, [sp], #8
 
                 // Set stack pointer.
-                mov sp, x5
+                mov sp, x0
 
+                // Call kernel main.
+                mov x0, x19
                 bl {fname_c}
 
             1:
@@ -68,12 +70,13 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let tokens = quote! {
         #[no_mangle]
+        extern "C" fn _expi_enable_identity_mapping() {
+            expi::cpu::mmu::enable_identity_mapping();
+        }
+
+        #[no_mangle]
         extern "C" fn _expi_globals_init(dtb_ptr32: u32) -> u64 {
-            match expi::init(dtb_ptr32) {
-                Ok(_) => {}
-                Err(expi::Error::UartError(_)) => loop {},
-                Err(err) => panic!("init error: {}", err),
-            }
+            expi::globals::init(dtb_ptr32).expect("init error");
 
             let end = expi::globals::GLOBALS
                 .free_memory()
@@ -119,42 +122,57 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let start_mp_code = format!(
         r#"
-                // Load dtb_ptr32.
-                ldr x5, =0x1000
-                ldr x0, [x5]
-
-                // Load stack top address.
-                ldr x5, =0x1008
-                ldr x1, [x5]
-
-                // Load stack size.
-                ldr x2, ={CORE_STACK_SIZE:#x}
+                // Get stack top address from 0x1000.
+                ldr x0, =0x1000
+                ldr x19, [x0], 0x8
+                // Get dtb_ptr32 from 0x1008.
+                ldr x20, [x0], 0x8
 
                 // Get core ID.
-                mrs x5, mpidr_el1
-                and x5, x5, #0xff
+                mrs x21, mpidr_el1
+                and x21, x21, #0xff
 
-                // Set stack pointer.
-                add x5, x5, #1
-                mul x5, x5, x2
-                sub x5, x1, x5
-                mov sp, x5
+                // Core 0's MMU is already initialized, so skip initialization.
+                cbz x21, 1f
 
-                bl {fname_c}
+                // Allocate an initial stack of approximately 0x10000 bytes.
+                // This is a temporary stack used for mmu initialization.
+                ldr x0, =0x10000
+                ldr x1, =0x80000
+                add x2, x21, #1
+                mul x2, x2, x0
+                sub x2, x1, x2
+                mov sp, x2
+                bl _expi_enable_identity_mapping
 
             1:
-                b 1b
+                // Load stack size.
+                ldr x0, ={CORE_STACK_SIZE:#x}
+
+                // Set stack pointer.
+                add x1, x21, #1
+                mul x1, x1, x0
+                sub x1, x19, x1
+                mov sp, x1
+
+                // Call kernel main.
+                mov x0, x20
+                bl {fname_c}
+
+            2:
+                b 2b
         "#
     );
 
     let tokens = quote! {
         #[no_mangle]
+        extern "C" fn _expi_enable_identity_mapping() {
+            expi::cpu::mmu::enable_identity_mapping();
+        }
+
+        #[no_mangle]
         extern "C" fn _expi_globals_init(dtb_ptr32: u32) -> u64 {
-            match expi::init(dtb_ptr32) {
-                Ok(_) => {}
-                Err(expi::Error::UartError(_)) => loop {},
-                Err(err) => panic!("init error: {}", err),
-            }
+            expi::globals::init(dtb_ptr32).expect("init error");
 
             let end = expi::globals::GLOBALS
                 .free_memory()
@@ -178,33 +196,37 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
         unsafe extern "C" fn _start() -> ! {
             core::arch::asm!(
                 r#"
-                    // Save dtb_ptr32 at 0x1000.
-                    ldr x5, =0x1000
-                    str x0, [x5]
+                    // Save dtb_ptr32 into a callee-saved register.
+                    mov x19, x0
 
-                    // Allocate an initial stack of approximately 0x80000 bytes
-                    // for core 0. This is a temporary stack used by
-                    // `_globals_init`.
-                    ldr x5, =0x80000
-                    mov sp, x5
+                    // Allocate an initial stack of approximately 0x80000
+                    // bytes. This is a temporary stack used by init functions.
+                    ldr x0, =0x80000
+                    mov sp, x0
+
+                    // Initialize MMU.
+                    bl _expi_enable_identity_mapping
 
                     // Initialize globals and get stack top address.
+                    mov x0, x19
                     bl _expi_globals_init
 
-                    // Save stack top address at 0x1008.
-                    ldr x5, =0x1008
-                    str x0, [x5]
+                    // Save stack top address at 0x1000.
+                    ldr x1, =0x1000
+                    str x0, [x1], 0x8
+                    // Save dtb_ptr32 at 0x1008.
+                    str x19, [x1], 0x8
 
                     // All cores but core 0 are waiting for a wakeup event.
                     // Once the event is received, they jump to the address
                     // stored at 0xe0 (core 1), 0xe8 (core 2) and 0xf0 (core 3)
                     // if not zero. Implementation:
                     // https://github.com/raspberrypi/tools/blob/master/armstubs/armstub8.S
-                    adr x5, _expi_start_mp
-                    mov x6, #0xe0
-                    str x5, [x6], #0x8
-                    str x5, [x6], #0x8
-                    str x5, [x6], #0x8
+                    adr x0, _expi_start_mp
+                    mov x1, #0xe0
+                    str x0, [x1], #0x8
+                    str x0, [x1], #0x8
+                    str x0, [x1], #0x8
 
                     // Clean and invalidate the first two pages. This is
                     // required because several global variables used during

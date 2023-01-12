@@ -24,10 +24,21 @@ impl fmt::Write for UartWriter {
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
-        let _ = core::fmt::Write::write_fmt(
-            &mut $crate::print::UartWriter,
-            core::format_args!($($arg)*),
-        );
+        {
+            let mut uart_writer_mg =
+                $crate::globals::GLOBALS.uart_writer().lock();
+            match uart_writer_mg.as_mut() {
+                Some(uart_writer) => {
+                    // The returned `Result` can be safely ignored because
+                    // `UartWriter::write_str` cannot fail.
+                    let _ = core::fmt::Write::write_fmt(
+                        uart_writer,
+                        core::format_args!($($arg)*),
+                    );
+                }
+                None => {}
+            }
+        }
     };
 }
 
@@ -39,9 +50,23 @@ macro_rules! println {
     };
 
     ($($arg:tt)*) => {
-        let _ = core::fmt::Write::write_fmt(
-            &mut $crate::print::UartWriter,
-            core::format_args!("{}\n", core::format_args!($($arg)*)),
-        );
+        {
+            let mut uart_writer_mg =
+                $crate::globals::GLOBALS.uart_writer().lock();
+            match uart_writer_mg.as_mut() {
+                Some(uart_writer) => {
+                    // The returned `Result` can be safely ignored because
+                    // `UartWriter::write_str` cannot fail.
+                    let _ = core::fmt::Write::write_fmt(
+                        uart_writer,
+                        core::format_args!(
+                            "{}\n",
+                            core::format_args!($($arg)*),
+                        ),
+                    );
+                }
+                None => {}
+            }
+        }
     };
 }

@@ -39,8 +39,6 @@
 #![feature(panic_info_message)]
 #![no_std]
 
-use core::fmt;
-
 pub mod binary;
 pub mod cpu;
 pub mod devicetree;
@@ -54,42 +52,3 @@ pub mod print;
 pub mod ptr;
 pub mod systimer;
 pub mod uart;
-
-/// expi error.
-#[derive(Debug)]
-pub enum Error {
-    /// UART error.
-    UartError(uart::Error),
-
-    /// Allocator error.
-    AllocError(mm::AllocError),
-}
-
-impl From<uart::Error> for Error {
-    fn from(err: uart::Error) -> Error {
-        Error::UartError(err)
-    }
-}
-
-impl From<mm::AllocError> for Error {
-    fn from(err: mm::AllocError) -> Error {
-        Error::AllocError(err)
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::UartError(err) => write!(f, "UART error: {err}"),
-            Error::AllocError(err) => write!(f, "allocator error: {err}"),
-        }
-    }
-}
-
-/// Initializes global resources like the MMU, UART, global allocator, etc.
-pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
-    cpu::mmu::enable_identity_mapping();
-    uart::init()?;
-    mm::init(dtb_ptr32)?;
-    Ok(())
-}

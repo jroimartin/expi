@@ -6,9 +6,11 @@
 
 use core::fmt;
 
+use crate::globals::GLOBALS;
 use crate::gpio;
 use crate::mailbox;
 use crate::mmio;
+use crate::print;
 
 /// Base address of the PL011 UART.
 ///
@@ -88,6 +90,12 @@ impl fmt::Display for Error {
 
 /// Initializes the UART.
 pub fn init() -> Result<(), Error> {
+    let mut uart_writer_mg = GLOBALS.uart_writer().lock();
+    if uart_writer_mg.as_ref().is_some() {
+        // Already initialized.
+        return Ok(());
+    }
+
     unsafe {
         // Mask all UART interrupts. RIMIM, DCDMIM and DSRMIM are unsupported,
         // so we write 0.
@@ -130,9 +138,12 @@ pub fn init() -> Result<(), Error> {
 
         // Enable UART, transmit and receive.
         mmio::write(UARTCR, (1 << 0) | (1 << 8) | (1 << 9));
-
-        Ok(())
     }
+
+    // Set globals.
+    *uart_writer_mg = Some(print::UartWriter);
+
+    Ok(())
 }
 
 /// Transmits a byte.

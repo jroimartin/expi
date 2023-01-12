@@ -5,11 +5,12 @@
 #![no_main]
 
 use expi::cpu::mp;
-use expi::print;
+use expi::println;
 use expi_macros::entrypoint_mp;
 
 /// Kernel main function.
 #[entrypoint_mp]
 fn kernel_main(_dtb_ptr32: u32) {
-    print!("{}", mp::core_id());
+    println!("Hello, core {}!", mp::core_id());
+    println!("Bye, core {}!", mp::core_id());
 }
