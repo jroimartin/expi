@@ -75,16 +75,16 @@ impl TryFrom<usize> for GpuIrq {
 #[derive(Debug, Copy, Clone)]
 pub enum IrqSource {
     /// System Timer 0.
-    SysTimer0,
+    SystemTimer0,
 
     /// System Timer 1.
-    SysTimer1,
+    SystemTimer1,
 
     /// System Timer 2.
-    SysTimer2,
+    SystemTimer2,
 
     /// System Timer 3.
-    SysTimer3,
+    SystemTimer3,
 
     /// Aux.
     Aux,
@@ -149,10 +149,10 @@ impl TryFrom<IrqSource> for GpuIrq {
 
     fn try_from(src: IrqSource) -> Result<GpuIrq, Error> {
         let irq = match src {
-            IrqSource::SysTimer0 => GpuIrq(0),
-            IrqSource::SysTimer1 => GpuIrq(1),
-            IrqSource::SysTimer2 => GpuIrq(2),
-            IrqSource::SysTimer3 => GpuIrq(3),
+            IrqSource::SystemTimer0 => GpuIrq(0),
+            IrqSource::SystemTimer1 => GpuIrq(1),
+            IrqSource::SystemTimer2 => GpuIrq(2),
+            IrqSource::SystemTimer3 => GpuIrq(3),
             IrqSource::Aux => GpuIrq(29),
             IrqSource::I2cSpiSlv => GpuIrq(43),
             IrqSource::Pwa0 => GpuIrq(45),
@@ -199,10 +199,10 @@ struct IrqBit(IrqReg, usize);
 impl From<IrqSource> for IrqBit {
     fn from(src: IrqSource) -> IrqBit {
         match src {
-            IrqSource::SysTimer0 => IrqBit(IrqReg::Gpu1, 0),
-            IrqSource::SysTimer1 => IrqBit(IrqReg::Gpu1, 1),
-            IrqSource::SysTimer2 => IrqBit(IrqReg::Gpu1, 2),
-            IrqSource::SysTimer3 => IrqBit(IrqReg::Gpu1, 3),
+            IrqSource::SystemTimer0 => IrqBit(IrqReg::Gpu1, 0),
+            IrqSource::SystemTimer1 => IrqBit(IrqReg::Gpu1, 1),
+            IrqSource::SystemTimer2 => IrqBit(IrqReg::Gpu1, 2),
+            IrqSource::SystemTimer3 => IrqBit(IrqReg::Gpu1, 3),
             IrqSource::Aux => IrqBit(IrqReg::Gpu1, 29),
             IrqSource::I2cSpiSlv => IrqBit(IrqReg::Gpu2, 11),
             IrqSource::Pwa0 => IrqBit(IrqReg::Gpu2, 13),
@@ -236,10 +236,10 @@ struct FiqSource(usize);
 impl From<IrqSource> for FiqSource {
     fn from(src: IrqSource) -> FiqSource {
         match src {
-            IrqSource::SysTimer0 => FiqSource(0),
-            IrqSource::SysTimer1 => FiqSource(1),
-            IrqSource::SysTimer2 => FiqSource(2),
-            IrqSource::SysTimer3 => FiqSource(3),
+            IrqSource::SystemTimer0 => FiqSource(0),
+            IrqSource::SystemTimer1 => FiqSource(1),
+            IrqSource::SystemTimer2 => FiqSource(2),
+            IrqSource::SystemTimer3 => FiqSource(3),
             IrqSource::Aux => FiqSource(29),
             IrqSource::I2cSpiSlv => FiqSource(43),
             IrqSource::Pwa0 => FiqSource(45),
@@ -320,8 +320,9 @@ pub struct BasicStatus {
     illegal_access_0: IrqStatus,
 
     /// GPU IRQ pending in the range 0:31, which contains:
-    /// [IrqSource::SysTimer0], [IrqSource::SysTimer1], [IrqSource::SysTimer2],
-    /// [IrqSource::SysTimer3] and [IrqSource::Aux].
+    /// [IrqSource::SystemTimer0], [IrqSource::SystemTimer1],
+    /// [IrqSource::SystemTimer2], [IrqSource::SystemTimer3] and
+    /// [IrqSource::Aux].
     pending_reg_1: IrqStatus,
 
     /// GPU IRQ pending in the range 32:63, which contains:
@@ -406,8 +407,9 @@ impl BasicStatus {
     }
 
     /// Returns true if a GPU IRQ in the range 0:31 is pending. This includes:
-    /// [IrqSource::SysTimer0], [IrqSource::SysTimer1], [IrqSource::SysTimer2],
-    /// [IrqSource::SysTimer3] and [IrqSource::Aux].
+    /// [IrqSource::SystemTimer0], [IrqSource::SystemTimer1],
+    /// [IrqSource::SystemTimer2], [IrqSource::SystemTimer3] and
+    /// [IrqSource::Aux].
     pub fn pending_reg_1(&self) -> bool {
         matches!(self.pending_reg_1, IrqStatus::Pending)
     }

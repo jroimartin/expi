@@ -25,7 +25,7 @@ use crate::print;
 /// ```
 ///
 /// [/arch/arm/boot/dts/bcm283x.dtsi]: https://github.com/raspberrypi/linux/blob/770d94882ac145c81af72e9a37180806c3f70bbd/arch/arm/boot/dts/bcm283x.dtsi#L304-L312
-const UART_BASE: usize = 0x201000;
+const UART_BASE: usize = 0x20_1000;
 
 /// UART data register.
 const UARTDR: usize = UART_BASE;

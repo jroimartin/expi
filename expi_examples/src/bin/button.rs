@@ -16,6 +16,9 @@ const GPIO_LED: usize = 26;
 /// The button is connected to GPIO16.
 const GPIO_BUTTON: usize = 16;
 
+/// Stores if the LED pin is set.
+static mut LED_SET: bool = false;
+
 /// Kernel main function.
 #[entrypoint]
 fn kernel_main(_dtb_ptr32: u32) {
@@ -67,21 +70,17 @@ fn irq_handler() {
 
 /// GPIO IRQ handler.
 fn gpio_handler() {
-    /// Stores if the LED is on.
-    static mut LED_ON: bool = false;
-
     let pin_button = Pin::try_from(GPIO_BUTTON).unwrap();
     pin_button.clear_event();
 
     let pin_led = Pin::try_from(GPIO_LED).unwrap();
     unsafe {
-        if LED_ON {
+        if LED_SET {
             pin_led.clear();
         } else {
             pin_led.set();
         }
-
-        LED_ON = !LED_ON;
+        LED_SET = !LED_SET;
     }
 }
 

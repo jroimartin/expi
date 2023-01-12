@@ -30,18 +30,18 @@ const MBOX_BASE: usize = 0xb880;
 const MBOX_READ: usize = MBOX_BASE;
 
 /// This value is returned as a response code when the request was successful.
-const MBOX_REQ_OK: u32 = 0x80000000;
+const MBOX_REQ_OK: u32 = 0x8000_0000;
 
 /// Mailbox0 status register.
 const MBOX_STATUS: usize = MBOX_BASE + 0x18;
 
 /// This bit is set in the status register if there is nothing to read from the
 /// mailbox.
-const MBOX_STATUS_EMPTY: u32 = 0x40000000;
+const MBOX_STATUS_EMPTY: u32 = 0x4000_0000;
 
 /// This bit is set in the status register if there is no space to write into
 /// the mailbox.
-const MBOX_STATUS_FULL: u32 = 0x80000000;
+const MBOX_STATUS_FULL: u32 = 0x8000_0000;
 
 /// Mailbox1 read/write register. It is used for communication from ARM to VC.
 /// From ARM's perspective, it is write-only.

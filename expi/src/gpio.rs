@@ -18,7 +18,7 @@ use crate::mmio;
 /// ```
 ///
 /// [/arch/arm/boot/dts/bcm283x.dtsi]: https://github.com/raspberrypi/linux/blob/770d94882ac145c81af72e9a37180806c3f70bbd/arch/arm/boot/dts/bcm283x.dtsi#L107-L302
-const GPIO_BASE: usize = 0x200000;
+const GPIO_BASE: usize = 0x20_0000;
 
 /// Base address of GPFSELn registers.
 const GPFSEL_BASE: usize = GPIO_BASE;

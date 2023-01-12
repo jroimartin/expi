@@ -9,11 +9,11 @@ use core::arch::asm;
 use expi::cpu::exceptions::{self, Exception, Interrupt};
 use expi::intc::{self, IrqSource};
 use expi::println;
-use expi::systimer::{self, SysTimer};
+use expi::system_timer::{self, SystemTimer};
 use expi_macros::{entrypoint, exception_handler, exception_vector_table};
 
 /// Time between interrupts.
-const TIME: u32 = 5 * systimer::CLOCK_FREQ; // 5s
+const TIME: u32 = 5 * system_timer::CLOCK_FREQ; // 5s
 
 /// Kernel main function.
 #[entrypoint]
@@ -36,11 +36,11 @@ fn kernel_main(_dtb_ptr32: u32) {
     Interrupt::Irq.unmask();
 
     // Enable System Timer 0 interrupts.
-    IrqSource::SysTimer0.enable();
+    IrqSource::SystemTimer0.enable();
 
     // Configure system timer.
-    let timer = SysTimer::try_from(0).unwrap();
-    let now = systimer::counter() as u32;
+    let timer = SystemTimer::try_from(0).unwrap();
+    let now = system_timer::counter() as u32;
     timer.set_cmp(now.wrapping_add(TIME));
 
     loop {
@@ -54,22 +54,22 @@ fn irq_handler() {
     let basic_status = intc::basic_status();
     if basic_status.pending_reg_1() {
         let gpu_status = intc::gpu_status();
-        if gpu_status.pending(IrqSource::SysTimer0).unwrap() {
-            systimer_handler();
+        if gpu_status.pending(IrqSource::SystemTimer0).unwrap() {
+            system_timer_handler();
         }
     }
 }
 
 /// Timer IRQ handler.
-fn systimer_handler() {
-    let timer = SysTimer::try_from(0).unwrap();
+fn system_timer_handler() {
+    let timer = SystemTimer::try_from(0).unwrap();
 
     timer.clear();
 
     let cmp = timer.cmp();
     timer.set_cmp(cmp.wrapping_add(TIME));
 
-    println!("counter={:#x}", systimer::counter());
+    println!("counter={:#x}", system_timer::counter());
 }
 
 /// Unimplemented exception handler.
