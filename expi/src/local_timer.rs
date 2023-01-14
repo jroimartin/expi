@@ -17,7 +17,7 @@ use crate::mmio;
 /// [/arch/arm/boot/dts/bcm2837.dtsi]: https://github.com/raspberrypi/linux/blob/770d94882ac145c81af72e9a37180806c3f70bbd/arch/arm/boot/dts/bcm2837.dtsi#L13-L19
 const LOCAL_BASE: usize = 0x100_0000;
 
-/// Local timer control & status.
+/// Local timer control and status.
 const LOCAL_TIMER_CONTROL_STATUS: usize = LOCAL_BASE + 0x34;
 
 /// Local timer IRQ clear and reload.
