@@ -41,6 +41,12 @@ pub fn set_reload_value(reload: u32) {
     unsafe { mmio::write(LOCAL_TIMER_CONTROL_STATUS, val) };
 }
 
+/// Returns the current reload value of the local timer.
+pub fn reload_value() -> u32 {
+    let val = unsafe { mmio::read(LOCAL_TIMER_CONTROL_STATUS) };
+    val & 0xfff_ffff
+}
+
 /// Reloads the reload value without generating an interrupt.
 pub fn reload() {
     unsafe { mmio::write(LOCAL_TIMER_IRQ_CLEAR_RELOAD, 1 << 30) };
