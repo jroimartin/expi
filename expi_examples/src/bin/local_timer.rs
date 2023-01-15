@@ -13,7 +13,7 @@ use expi::gpio::{Function, Pin};
 use expi::local_intc::{self, IntSource, IntType};
 use expi::local_timer;
 use expi::println;
-use expi_macros::{entrypoint_mp, exception_handler, exception_vector_table};
+use expi_macros::{entrypoint, exception_handler, exception_vector_table};
 
 /// The output pin is GPIO26.
 const GPIO_OUT: usize = 26;
@@ -22,7 +22,7 @@ const GPIO_OUT: usize = 26;
 static mut OUT_SET: bool = false;
 
 /// Kernel main function.
-#[entrypoint_mp]
+#[entrypoint]
 fn kernel_main(_dtb_ptr32: u32) {
     println!("expi");
 
