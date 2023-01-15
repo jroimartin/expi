@@ -9,6 +9,17 @@ use crate::mailbox;
 
 use range::{Range, RangeSet};
 
+/// Base address of the kernel.
+const KERNEL_BASE: u64 = 0x80000;
+
+/// Maximum kernel size.
+///
+/// This is the memory reserved for the kernel when the global allocator is
+/// initialized.
+///
+/// TODO(rm): Get the size of the kernel dynamically.
+const KERNEL_MAX_SIZE: u64 = 50 * 1024 * 1024; // 50 MiB
+
 /// Allocator error.
 #[derive(Debug)]
 pub enum AllocError {
@@ -208,6 +219,11 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
         let rsv = Range::new(addr, addr + size - 1)?;
         free_mem.remove(rsv)?;
     }
+
+    // Reserve the memory region where the kernel is located.
+    let kernel_region =
+        Range::new(KERNEL_BASE, KERNEL_BASE + KERNEL_MAX_SIZE - 1)?;
+    free_mem.remove(kernel_region)?;
 
     // Set globals.
     *free_mem_mg = Some(free_mem);

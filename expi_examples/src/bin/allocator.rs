@@ -17,6 +17,14 @@ use expi_macros::entrypoint;
 fn kernel_main(_dtb_ptr32: u32) {
     println!("expi");
 
+    let free_memory_size =
+        GLOBALS.free_memory().lock().as_ref().unwrap().size();
+
+    println!(
+        "free memory: {} MiB",
+        (free_memory_size as f32) / 1024.0 / 1024.0
+    );
+
     println!(
         "start: {:#x?}",
         GLOBALS.free_memory().lock().as_ref().unwrap().ranges(),
