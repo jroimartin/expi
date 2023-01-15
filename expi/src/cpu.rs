@@ -31,6 +31,14 @@ impl TryFrom<usize> for Core {
     }
 }
 
+impl TryFrom<u8> for Core {
+    type Error = Error;
+
+    fn try_from(core: u8) -> Result<Core, Error> {
+        Core::try_from(core as usize)
+    }
+}
+
 impl From<Core> for usize {
     fn from(core: Core) -> usize {
         core.0

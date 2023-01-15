@@ -8,7 +8,6 @@ use core::arch::asm;
 
 use expi::cpu::exceptions::{self, Exception, Interrupt};
 use expi::cpu::mp;
-use expi::cpu::Core;
 use expi::gpio::{Function, Pin};
 use expi::local_intc::{self, IntSource, IntType};
 use expi::local_timer;
@@ -47,10 +46,10 @@ fn kernel_main(_dtb_ptr32: u32) {
 
     // Configure local timer.
     IntSource::LocalTimer
-        .route(Core::try_from(0).unwrap(), IntType::Irq)
+        .route(mp::core(), IntType::Irq)
         .unwrap();
     IntSource::LocalTimer.enable();
-    local_timer::set_reload_value(1000);
+    local_timer::set_reload_value(1000); // 19.2 kHz
     local_timer::enable();
 
     loop {
@@ -61,8 +60,7 @@ fn kernel_main(_dtb_ptr32: u32) {
 /// IRQ handler.
 #[exception_handler]
 fn irq_handler() {
-    let core = Core::try_from(mp::core_id() as usize).unwrap();
-    let status = local_intc::irq_status(core);
+    let status = local_intc::irq_status(mp::core());
     if status.pending_local_timer() {
         local_timer_handler()
     }
