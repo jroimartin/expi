@@ -3,6 +3,7 @@
 use core::fmt;
 use core::panic::PanicInfo;
 
+use crate::cpu;
 use crate::mm;
 use crate::print::UartWriter;
 use crate::uart;
@@ -94,7 +95,9 @@ fn panic(info: &PanicInfo) -> ! {
         println!();
     }
 
-    loop {}
+    loop {
+        cpu::wfe()
+    }
 }
 
 /// Initializes global resources. E.g. UART, global allocator.

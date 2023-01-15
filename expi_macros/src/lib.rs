@@ -64,6 +64,7 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 bl {fname_c}
 
             1:
+                wfe
                 b 1b
         "#
     );
@@ -160,6 +161,7 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 bl {fname_c}
 
             2:
+                wfe
                 b 2b
         "#
     );

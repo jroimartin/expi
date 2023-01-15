@@ -1,5 +1,7 @@
 //! CPU specific operations.
 
+use core::arch::asm;
+
 pub mod exceptions;
 pub mod mmu;
 pub mod mp;
@@ -43,4 +45,22 @@ impl From<Core> for usize {
     fn from(core: Core) -> usize {
         core.0
     }
+}
+
+/// wfe instruction.
+///
+/// Wait For Event is a hint instruction that indicates that the PE can enter a
+/// low-power state and remain there until a wakeup event occurs.
+#[inline(always)]
+pub fn wfe() {
+    unsafe { asm!("wfe") };
+}
+
+/// wfi instruction.
+///
+/// Wait For Interrupt is a hint instruction that indicates that the PE can
+/// enter a low-power state and remain there until a wakeup event occurs.
+#[inline(always)]
+pub fn wfi() {
+    unsafe { asm!("wfi") };
 }
