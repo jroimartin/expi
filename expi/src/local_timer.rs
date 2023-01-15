@@ -30,14 +30,20 @@ pub fn enable() {
     unsafe { mmio::write(LOCAL_TIMER_CONTROL_STATUS, val) };
 }
 
-/// Sets the reload value of the local timer. The value must be a 28-bit
-/// unsigned integer. The 4 most significant bits are ignored. It acts as a
-/// frequency divider.
+/// Sets the reload value of the local timer.
+///
+/// The provided reload value must be a 28-bit unsigned integer. The 4 most
+/// significant bits are ignored. It acts as a frequency divider.
 pub fn set_reload_value(reload: u32) {
     let mut val = unsafe { mmio::read(LOCAL_TIMER_CONTROL_STATUS) };
     let mask = 0xfff_ffff;
     val = (val & !mask) | (reload & mask);
     unsafe { mmio::write(LOCAL_TIMER_CONTROL_STATUS, val) };
+}
+
+/// Reloads the reload value without generating an interrupt.
+pub fn reload() {
+    unsafe { mmio::write(LOCAL_TIMER_IRQ_CLEAR_RELOAD, 1 << 30) };
 }
 
 /// Clears interrupt.
