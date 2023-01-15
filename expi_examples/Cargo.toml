@@ -7,4 +7,5 @@ publish = false
 [dependencies]
 expi = { path = "../expi" }
 expi_macros = { path = "../expi_macros" }
+mutex = { path = "../mutex" }
 libm = "0.2.6"
