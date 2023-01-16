@@ -350,13 +350,13 @@ impl Parse for ExceptionVectorTableParams {
 /// It is also necessary to set the location of the vector table in memory.
 ///
 /// The following example shows how to do this using a Cargo configuration
-/// file. It places the vector table at 0x90000.
+/// file. It places the vector table at 0x81000.
 ///
 /// ```text
 /// [target.aarch64-unknown-none]
 /// rustflags = [
 ///     "-Clink-arg=--undefined=_exception_vector_table",
-///     "-Clink-arg=--section-start=.exception_vector_table=0x90000",
+///     "-Clink-arg=--section-start=.exception_vector_table=0x81000",
 /// ]
 /// ```
 #[proc_macro]

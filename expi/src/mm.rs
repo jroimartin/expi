@@ -14,11 +14,9 @@ const KERNEL_BASE: u64 = 0x80000;
 
 /// Maximum kernel size.
 ///
-/// This is the memory reserved for the kernel when the global allocator is
-/// initialized.
-///
-/// TODO(rm): Get the size of the kernel dynamically.
-const KERNEL_MAX_SIZE: u64 = 50 * 1024 * 1024; // 50 MiB
+/// A memory region of 16 MiB starting at [`KERNEL_BASE`] is reserved for the
+/// kernel when the global allocator is initialized.
+const KERNEL_MAX_SIZE: u64 = 16 * 1024 * 1024;
 
 /// Allocator error.
 #[derive(Debug)]

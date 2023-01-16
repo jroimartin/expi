@@ -99,7 +99,7 @@ fn configure_exceptions() {
     Interrupt::Fiq.route();
 
     // Set vector table address.
-    exceptions::set_vector_table(0x90000);
+    exceptions::set_vector_table(0x81000);
 
     // Unmask IRQs and FIQs.
     Interrupt::Irq.unmask();

@@ -35,7 +35,7 @@ fn kernel_main(_dtb_ptr32: u32) {
     Interrupt::Irq.route();
 
     // Set vector table address.
-    exceptions::set_vector_table(0x90000);
+    exceptions::set_vector_table(0x81000);
 
     // Unmask IRQ.
     Interrupt::Irq.unmask();
