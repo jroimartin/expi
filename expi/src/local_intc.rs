@@ -104,17 +104,17 @@ impl IntSource {
     pub fn enable(&self) {
         match self {
             IntSource::LocalTimer => LocalTimerInt.enable(),
-            IntSource::Axi => unimplemented!(),
-            IntSource::Pmu => unimplemented!(),
-            IntSource::Gpu => unimplemented!(),
-            IntSource::Mailbox0 => unimplemented!(),
-            IntSource::Mailbox1 => unimplemented!(),
-            IntSource::Mailbox2 => unimplemented!(),
-            IntSource::Mailbox3 => unimplemented!(),
-            IntSource::CntvIrq => unimplemented!(),
-            IntSource::CnthpIrq => unimplemented!(),
-            IntSource::CntpnsIrq => unimplemented!(),
-            IntSource::CntpsIrq => unimplemented!(),
+            IntSource::Axi => todo!(),
+            IntSource::Pmu => todo!(),
+            IntSource::Gpu => todo!(),
+            IntSource::Mailbox0 => todo!(),
+            IntSource::Mailbox1 => todo!(),
+            IntSource::Mailbox2 => todo!(),
+            IntSource::Mailbox3 => todo!(),
+            IntSource::CntvIrq => todo!(),
+            IntSource::CnthpIrq => todo!(),
+            IntSource::CntpnsIrq => todo!(),
+            IntSource::CntpsIrq => todo!(),
         }
     }
 
@@ -122,17 +122,17 @@ impl IntSource {
     pub fn disable(&self) {
         match self {
             IntSource::LocalTimer => LocalTimerInt.disable(),
-            IntSource::Axi => unimplemented!(),
-            IntSource::Pmu => unimplemented!(),
-            IntSource::Gpu => unimplemented!(),
-            IntSource::Mailbox0 => unimplemented!(),
-            IntSource::Mailbox1 => unimplemented!(),
-            IntSource::Mailbox2 => unimplemented!(),
-            IntSource::Mailbox3 => unimplemented!(),
-            IntSource::CntvIrq => unimplemented!(),
-            IntSource::CnthpIrq => unimplemented!(),
-            IntSource::CntpnsIrq => unimplemented!(),
-            IntSource::CntpsIrq => unimplemented!(),
+            IntSource::Axi => todo!(),
+            IntSource::Pmu => todo!(),
+            IntSource::Gpu => todo!(),
+            IntSource::Mailbox0 => todo!(),
+            IntSource::Mailbox1 => todo!(),
+            IntSource::Mailbox2 => todo!(),
+            IntSource::Mailbox3 => todo!(),
+            IntSource::CntvIrq => todo!(),
+            IntSource::CnthpIrq => todo!(),
+            IntSource::CntpnsIrq => todo!(),
+            IntSource::CntpsIrq => todo!(),
         }
     }
 
@@ -140,17 +140,17 @@ impl IntSource {
     pub fn route(&self, core: Core, ty: IntType) -> Result<(), Error> {
         match self {
             IntSource::LocalTimer => LocalTimerInt.route(core, ty),
-            IntSource::Axi => unimplemented!(),
-            IntSource::Pmu => unimplemented!(),
-            IntSource::Gpu => unimplemented!(),
-            IntSource::Mailbox0 => unimplemented!(),
-            IntSource::Mailbox1 => unimplemented!(),
-            IntSource::Mailbox2 => unimplemented!(),
-            IntSource::Mailbox3 => unimplemented!(),
-            IntSource::CntvIrq => unimplemented!(),
-            IntSource::CnthpIrq => unimplemented!(),
-            IntSource::CntpnsIrq => unimplemented!(),
-            IntSource::CntpsIrq => unimplemented!(),
+            IntSource::Axi => todo!(),
+            IntSource::Pmu => todo!(),
+            IntSource::Gpu => todo!(),
+            IntSource::Mailbox0 => todo!(),
+            IntSource::Mailbox1 => todo!(),
+            IntSource::Mailbox2 => todo!(),
+            IntSource::Mailbox3 => todo!(),
+            IntSource::CntvIrq => todo!(),
+            IntSource::CnthpIrq => todo!(),
+            IntSource::CntpnsIrq => todo!(),
+            IntSource::CntpsIrq => todo!(),
         }
         Ok(())
     }
