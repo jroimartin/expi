@@ -91,7 +91,7 @@ impl fmt::Display for Error {
 /// Initializes the UART.
 pub fn init() -> Result<(), Error> {
     let mut uart_writer_mg = GLOBALS.uart_writer().lock();
-    if uart_writer_mg.as_ref().is_some() {
+    if uart_writer_mg.is_some() {
         // Already initialized.
         return Ok(());
     }

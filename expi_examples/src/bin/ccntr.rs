@@ -14,7 +14,7 @@ const SIZE: usize = 1000;
 
 /// Kernel main function.
 #[entrypoint]
-fn kernel_main(_dtb_ptr32: u32) {
+fn kernel_main() {
     println!("expi");
 
     let mut current_el: u64;

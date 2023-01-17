@@ -1,5 +1,7 @@
 //! Utilities for dealing with memory through pointers.
 
+use alloc::string::{FromUtf8Error, String};
+use alloc::vec::Vec;
 use core::fmt;
 
 use crate::binary::FromBytes;
@@ -13,30 +15,26 @@ const MEM_READER_BUF_SIZE: usize = 1024;
 pub enum Error {
     /// The requested type is too big to fit in the fixed size buffer used by
     /// [`MemReader`].
-    TypeSizeIsToBig,
+    TypeSizeIsTooBig,
+
+    /// The read bytes cannot be converted into an UTF-8 string.
+    InvalidUtf8String(FromUtf8Error),
+}
+
+impl From<FromUtf8Error> for Error {
+    fn from(err: FromUtf8Error) -> Error {
+        Error::InvalidUtf8String(err)
+    }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::TypeSizeIsToBig => write!(f, "requested type is to big"),
+            Error::TypeSizeIsTooBig => write!(f, "requested type is to big"),
+            Error::InvalidUtf8String(err) => {
+                write!(f, "invalid UTF-8 string: {err}")
+            }
         }
-    }
-}
-
-/// A pointer to an arbitrary memory location.
-#[derive(Debug, Copy, Clone)]
-pub struct Ptr(usize);
-
-impl From<usize> for Ptr {
-    fn from(ptr: usize) -> Ptr {
-        Ptr(ptr)
-    }
-}
-
-impl From<Ptr> for usize {
-    fn from(ptr: Ptr) -> usize {
-        ptr.0
     }
 }
 
@@ -44,12 +42,12 @@ impl From<Ptr> for usize {
 /// every read. So sucessive reads return consecutive memory locations.
 pub struct MemReader {
     /// Current position.
-    pos: Ptr,
+    pos: usize,
 }
 
 impl MemReader {
     /// Creates a [`MemReader`] and sets its internal memory position to `pos`.
-    pub fn new(pos: Ptr) -> MemReader {
+    pub fn new(pos: usize) -> MemReader {
         MemReader { pos }
     }
 
@@ -62,11 +60,11 @@ impl MemReader {
     /// location, therefore this function is unsafe.
     pub unsafe fn read(&mut self, buf: &mut [u8]) {
         core::ptr::copy(
-            self.pos.0 as *const u8,
+            self.pos as *const u8,
             buf.as_ptr() as *mut u8,
             buf.len(),
         );
-        self.pos.0 += buf.len();
+        self.pos += buf.len();
     }
 
     /// Reads a [`FromBytes`] value from its representation as a byte array in
@@ -79,7 +77,7 @@ impl MemReader {
     pub unsafe fn read_le<T: FromBytes>(&mut self) -> Result<T, Error> {
         let tsz = core::mem::size_of::<T>();
         if tsz > MEM_READER_BUF_SIZE {
-            return Err(Error::TypeSizeIsToBig);
+            return Err(Error::TypeSizeIsTooBig);
         }
 
         let mut buf = [0u8; MEM_READER_BUF_SIZE];
@@ -97,7 +95,7 @@ impl MemReader {
     pub unsafe fn read_be<T: FromBytes>(&mut self) -> Result<T, Error> {
         let tsz = core::mem::size_of::<T>();
         if tsz > MEM_READER_BUF_SIZE {
-            return Err(Error::TypeSizeIsToBig);
+            return Err(Error::TypeSizeIsTooBig);
         }
 
         let mut buf = [0u8; MEM_READER_BUF_SIZE];
@@ -105,19 +103,46 @@ impl MemReader {
         Ok(T::from_be_bytes(&buf[..tsz]))
     }
 
+    /// Reads a null-terminated string.
+    ///
+    /// # Safety
+    ///
+    /// The user is free to point the internal reader position to any memory
+    /// location, therefore this function is unsafe.
+    pub unsafe fn read_c_string(&mut self) -> Result<String, Error> {
+        let s = read_c_string(self.pos)?;
+        self.pos += s.len() + 1;
+        Ok(s)
+    }
+
     /// Sets the memory position of the next read. Setting the internal
     /// position is a safe operation, however reading is unsafe.
-    pub fn set_position(&mut self, pos: Ptr) {
+    pub fn set_position(&mut self, pos: usize) {
         self.pos = pos
     }
 
     /// Returns the current memory position.
-    pub fn position(&self) -> Ptr {
+    pub fn position(&self) -> usize {
         self.pos
     }
 
     /// Skips `n` bytes.
     pub fn skip(&mut self, n: usize) {
-        self.pos.0 += n
+        self.pos += n
     }
+}
+
+/// Reads a null-terminated string at `ptr`.
+///
+/// # Safety
+///
+/// This function accepts an arbitrary memory address, therefore it is unsafe.
+pub unsafe fn read_c_string(ptr: usize) -> Result<String, Error> {
+    let mut ptr = ptr as *const u8;
+    let mut bytes = Vec::new();
+    while *ptr != 0 {
+        bytes.push(*ptr);
+        ptr = ptr.add(1);
+    }
+    Ok(String::from_utf8(bytes)?)
 }

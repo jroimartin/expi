@@ -4,6 +4,7 @@ use core::fmt;
 use core::panic::PanicInfo;
 
 use crate::cpu;
+use crate::devicetree::{self, Fdt};
 use crate::mm;
 use crate::print::UartWriter;
 use crate::uart;
@@ -20,6 +21,9 @@ pub enum Error {
 
     /// Allocator error.
     AllocError(mm::AllocError),
+
+    /// Devicetree error.
+    DevicetreeError(devicetree::Error),
 }
 
 impl From<uart::Error> for Error {
@@ -34,11 +38,18 @@ impl From<mm::AllocError> for Error {
     }
 }
 
+impl From<devicetree::Error> for Error {
+    fn from(err: devicetree::Error) -> Error {
+        Error::DevicetreeError(err)
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::UartError(err) => write!(f, "UART error: {err}"),
             Error::AllocError(err) => write!(f, "allocator error: {err}"),
+            Error::DevicetreeError(err) => write!(f, "devicetree error: {err}"),
         }
     }
 }
@@ -51,6 +62,9 @@ pub struct GlobalResources {
     /// [`UartWriter`] used by the [`print!`] and [`println!`] macros to
     /// provide safe concurrent access to the UART.
     uart_writer: TicketMutex<Option<UartWriter>>,
+
+    /// Parsed devicetree.
+    fdt: TicketMutex<Option<Fdt>>,
 }
 
 /// Global resources shared between modules.
@@ -62,6 +76,7 @@ impl GlobalResources {
         GlobalResources {
             free_memory: TicketMutex::new(None),
             uart_writer: TicketMutex::new(None),
+            fdt: TicketMutex::new(None),
         }
     }
 
@@ -73,6 +88,11 @@ impl GlobalResources {
     /// Returns a reference to the UART writer.
     pub fn uart_writer(&self) -> &TicketMutex<Option<UartWriter>> {
         &self.uart_writer
+    }
+
+    /// Returns the parsed devicetree.
+    pub fn fdt(&self) -> &TicketMutex<Option<Fdt>> {
+        &self.fdt
     }
 }
 
@@ -107,5 +127,6 @@ fn panic(info: &PanicInfo) -> ! {
 pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
     uart::init()?;
     mm::init(dtb_ptr32)?;
+    devicetree::init(dtb_ptr32)?;
     Ok(())
 }

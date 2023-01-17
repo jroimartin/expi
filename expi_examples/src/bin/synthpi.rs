@@ -32,7 +32,7 @@ const RELOAD_20HZ: u32 = (19.2e6 / 20f32) as u32;
 
 /// Kernel main function.
 #[entrypoint_mp]
-fn kernel_main(_dtb_ptr32: u32) {
+fn kernel_main() {
     println!("expi");
 
     match mp::core_id() {

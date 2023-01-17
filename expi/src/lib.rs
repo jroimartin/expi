@@ -43,6 +43,8 @@
 #![feature(panic_info_message)]
 #![no_std]
 
+extern crate alloc;
+
 pub mod binary;
 pub mod cpu;
 pub mod devicetree;

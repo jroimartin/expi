@@ -60,7 +60,6 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 mov sp, x0
 
                 // Call kernel main.
-                mov x0, x19
                 bl {fname_c}
 
             1:
@@ -98,8 +97,8 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[no_mangle]
-        unsafe extern "C" fn #fname_c(dtb_ptr32: u32) {
-            #fname_rust(dtb_ptr32)
+        unsafe extern "C" fn #fname_c() {
+            #fname_rust()
         }
 
         #item_fn
@@ -126,21 +125,19 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 // Get stack top address from 0x1000.
                 ldr x0, =0x1000
                 ldr x19, [x0], 0x8
-                // Get dtb_ptr32 from 0x1008.
-                ldr x20, [x0], 0x8
 
                 // Get core ID.
-                mrs x21, mpidr_el1
-                and x21, x21, #0xff
+                mrs x20, mpidr_el1
+                and x20, x20, #0xff
 
                 // Core 0's MMU is already initialized, so skip initialization.
-                cbz x21, 1f
+                cbz x20, 1f
 
                 // Allocate an initial stack of approximately 0x10000 bytes.
                 // This is a temporary stack used for mmu initialization.
                 ldr x0, =0x10000
                 ldr x1, =0x80000
-                add x2, x21, #1
+                add x2, x20, #1
                 mul x2, x2, x0
                 sub x2, x1, x2
                 mov sp, x2
@@ -151,13 +148,12 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 ldr x0, ={CORE_STACK_SIZE:#x}
 
                 // Set stack pointer.
-                add x1, x21, #1
+                add x1, x20, #1
                 mul x1, x1, x0
                 sub x1, x19, x1
                 mov sp, x1
 
                 // Call kernel main.
-                mov x0, x20
                 bl {fname_c}
 
             2:
@@ -216,8 +212,6 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     // Save stack top address at 0x1000.
                     ldr x1, =0x1000
                     str x0, [x1], 0x8
-                    // Save dtb_ptr32 at 0x1008.
-                    str x19, [x1], 0x8
 
                     // All cores but core 0 are waiting for a wakeup event.
                     // Once the event is received, they jump to the address
@@ -249,8 +243,8 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[no_mangle]
-        unsafe extern "C" fn #fname_c(dtb_ptr32: u32) {
-            #fname_rust(dtb_ptr32)
+        unsafe extern "C" fn #fname_c() {
+            #fname_rust()
         }
 
         #item_fn

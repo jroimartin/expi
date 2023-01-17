@@ -184,7 +184,7 @@ unsafe impl GlobalAlloc for GlobalAllocator {
 /// Initializes the global allocator with the list of free memory regions.
 pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
     let mut free_mem_mg = GLOBALS.free_memory().lock();
-    if free_mem_mg.as_ref().is_some() {
+    if free_mem_mg.is_some() {
         // Already initialized.
         return Ok(());
     }
