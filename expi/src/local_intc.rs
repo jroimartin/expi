@@ -324,26 +324,17 @@ impl Status {
 /// Returns the IRQ status of the ARM-local interrupt sources.
 pub fn irq_status(core: Core) -> Status {
     let addr = CORE_IRQ_SOURCE_BASE + usize::from(core) * 4;
-    let val = unsafe { mmio::read(addr) };
-    Status {
-        local_timer: (val & (1 << 11) != 0).into(),
-        axi: (val & (1 << 10) != 0).into(),
-        pmu: (val & (1 << 9) != 0).into(),
-        gpu: (val & (1 << 8) != 0).into(),
-        mailbox3: (val & (1 << 7) != 0).into(),
-        mailbox2: (val & (1 << 6) != 0).into(),
-        mailbox1: (val & (1 << 5) != 0).into(),
-        mailbox0: (val & (1 << 4) != 0).into(),
-        cntv: (val & (1 << 3) != 0).into(),
-        cnthp: (val & (1 << 2) != 0).into(),
-        cntpns: (val & (1 << 1) != 0).into(),
-        cntps: (val & 1 != 0).into(),
-    }
+    read_status(addr)
 }
 
 /// Returns the FIQ status of the ARM-local interrupt sources.
 pub fn fiq_status(core: Core) -> Status {
     let addr = CORE_FIQ_SOURCE_BASE + usize::from(core) * 4;
+    read_status(addr)
+}
+
+/// Reads the interrupt status from the provided register address.
+fn read_status(addr: usize) -> Status {
     let val = unsafe { mmio::read(addr) };
     Status {
         local_timer: (val & (1 << 11) != 0).into(),
