@@ -228,3 +228,10 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
 
     Ok(())
 }
+
+/// Returns the size in bytes of the memory that is currently free.
+pub fn free_memory_size() -> Result<u64, AllocError> {
+    let free_mem_mg = GLOBALS.free_memory().lock();
+    let free_mem = free_mem_mg.as_ref().ok_or(AllocError::Uninitialized)?;
+    Ok(free_mem.size())
+}
