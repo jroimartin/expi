@@ -89,7 +89,7 @@ impl Range {
 }
 
 /// Fixed length of the `RangeSet`.
-const RANGE_SET_LEN: usize = 128;
+const RANGE_SET_LEN: usize = 256;
 
 /// Represents a set of ranges.
 #[derive(Debug)]
