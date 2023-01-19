@@ -276,12 +276,6 @@ enum IrqStatus {
     Unknown,
 }
 
-impl Default for IrqStatus {
-    fn default() -> IrqStatus {
-        IrqStatus::Unknown
-    }
-}
-
 impl From<bool> for IrqStatus {
     fn from(status: bool) -> IrqStatus {
         if status {
@@ -559,7 +553,7 @@ pub fn basic_status() -> BasicStatus {
 
 /// Returns the IRQ status of the GPU.
 pub fn gpu_status() -> GpuStatus {
-    let mut pending = [IrqStatus::default(); NGPUIRQS];
+    let mut pending = [IrqStatus::Unknown; NGPUIRQS];
     for i in 0..2 {
         let addr = INTGPUPEND_BASE + i * 4;
         let reg = unsafe { mmio::read(addr) };

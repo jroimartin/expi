@@ -1,8 +1,11 @@
 //! Devicetree parser.
 
-use alloc::string::String;
+use alloc::borrow::ToOwned;
+use alloc::collections::BTreeMap;
+use alloc::string::{FromUtf8Error, String};
 use alloc::vec;
 use alloc::vec::Vec;
+use core::array::TryFromSliceError;
 use core::fmt;
 
 use crate::globals::GLOBALS;
@@ -38,8 +41,20 @@ pub enum Error {
     /// the devicetree header.
     InvalidStructureSize(usize),
 
-    /// Malformed devicetree.
-    Malformed,
+    /// Malformed devicetree structure.
+    MalformedStructure,
+
+    /// Malformed devicetree path.
+    MalformedPath,
+
+    /// The entity could not be found.
+    NotFound,
+
+    /// The path matches more than one node.
+    AmbiguousPath,
+
+    /// Type conversion error.
+    ConversionError,
 
     /// Error while dealing with pointers.
     PtrError(ptr::Error),
@@ -48,6 +63,18 @@ pub enum Error {
 impl From<ptr::Error> for Error {
     fn from(err: ptr::Error) -> Error {
         Error::PtrError(err)
+    }
+}
+
+impl From<TryFromSliceError> for Error {
+    fn from(_err: TryFromSliceError) -> Error {
+        Error::ConversionError
+    }
+}
+
+impl From<FromUtf8Error> for Error {
+    fn from(_err: FromUtf8Error) -> Error {
+        Error::ConversionError
     }
 }
 
@@ -69,7 +96,13 @@ impl fmt::Display for Error {
             Error::InvalidStructureSize(size) => {
                 write!(f, "invalid structure size: {size}")
             }
-            Error::Malformed => write!(f, "malformed devicetree"),
+            Error::MalformedStructure => {
+                write!(f, "malformed devicetree structure")
+            }
+            Error::MalformedPath => write!(f, "malformed devicetree path"),
+            Error::NotFound => write!(f, "not found"),
+            Error::AmbiguousPath => write!(f, "ambiguous path"),
+            Error::ConversionError => write!(f, "conversion error"),
             Error::PtrError(err) => write!(f, "memory access error: {err}"),
         }
     }
@@ -265,61 +298,68 @@ impl From<u32> for FdtToken {
     }
 }
 
-/// Represents a property of a node of the devicetree.
+/// Represents a property of a devicetree node.
 #[derive(Debug)]
-pub struct FdtProp {
-    /// Property node.
-    name: String,
+pub struct FdtProperty(Vec<u8>);
 
-    /// Property value.
-    value: Vec<u8>,
-}
-
-impl FdtProp {
-    /// Returns the name of the property.
-    pub fn name(&self) -> &str {
-        &self.name
+impl FdtProperty {
+    /// Returns true if the value is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
-    /// Returns the value of the property
-    pub fn value(&self) -> &[u8] {
-        &self.value
+    /// Returns the value as [`u32`].
+    pub fn to_u32(&self) -> Result<u32, Error> {
+        Ok(u32::from_be_bytes(self.0.as_slice().try_into()?))
+    }
+
+    /// Returns the value as [`u64`].
+    pub fn to_u64(&self) -> Result<u64, Error> {
+        Ok(u64::from_be_bytes(self.0.as_slice().try_into()?))
+    }
+
+    /// Returns the value as [`String`].
+    pub fn to_string(&self) -> Result<String, Error> {
+        let bytes = self.0.strip_suffix(&[0]).ok_or(Error::ConversionError)?;
+        Ok(String::from_utf8(bytes.to_vec())?)
+    }
+
+    /// Returns the value as [`String`] list.
+    pub fn to_stringlist(&self) -> Result<Vec<String>, Error> {
+        let bytes = self.0.strip_suffix(&[0]).ok_or(Error::ConversionError)?;
+        let stringlist = bytes
+            .split(|x| *x == 0)
+            .map(|x| String::from_utf8(x.to_vec()))
+            .collect::<Result<Vec<String>, FromUtf8Error>>()?;
+        Ok(stringlist)
     }
 }
 
 /// Represents a node of the devicetree.
 #[derive(Debug)]
 pub struct FdtNode {
-    /// Node name.
-    name: String,
-
     /// Node's children.
-    children: Vec<FdtNode>,
+    children: BTreeMap<String, FdtNode>,
 
     /// Node's properties.
-    props: Vec<FdtProp>,
+    properties: BTreeMap<String, FdtProperty>,
 }
 
 impl FdtNode {
-    /// Returns the name of the node.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
     /// Returns the node's children.
-    pub fn children(&self) -> &[FdtNode] {
+    pub fn children(&self) -> &BTreeMap<String, FdtNode> {
         &self.children
     }
 
-    /// returns the node's properties.
-    pub fn prop(&self) -> &[FdtProp] {
-        &self.props
+    /// Returns the node's properties.
+    pub fn properties(&self) -> &BTreeMap<String, FdtProperty> {
+        &self.properties
     }
 }
 
-/// Represents the structure block. Contains the root nodes of the devicetree.
+/// Represents the structure block.
 #[derive(Debug)]
-pub struct FdtStructure(Vec<FdtNode>);
+pub struct FdtStructure(FdtNode);
 
 impl FdtStructure {
     /// Parses the structure block at `ptr`.
@@ -335,11 +375,11 @@ impl FdtStructure {
         strings_size: usize,
     ) -> Result<FdtStructure, Error> {
         let mut mr = MemReader::new(struct_ptr);
-        let mut root_nodes = Vec::new();
-        while let Some(node) =
-            FdtStructure::parse_node(&mut mr, strings_ptr, strings_size, None)?
+        let mut root_nodes = BTreeMap::new();
+        while let Some((name, node)) =
+            Self::parse_node(&mut mr, strings_ptr, strings_size, None)?
         {
-            root_nodes.push(node);
+            root_nodes.insert(name, node);
         }
 
         // The size of the parsed devicetree structure must match the one in
@@ -349,7 +389,14 @@ impl FdtStructure {
             return Err(Error::InvalidStructureSize(parsed_size));
         }
 
-        Ok(FdtStructure(root_nodes))
+        // There must be only one root node.
+        if root_nodes.len() != 1 {
+            return Err(Error::MalformedStructure);
+        }
+
+        // The name of the root node is an empty string.
+        let root = root_nodes.remove("").ok_or(Error::MalformedStructure)?;
+        Ok(FdtStructure(root))
     }
 
     /// Parses a devicetree node and its subtree.
@@ -362,42 +409,41 @@ impl FdtStructure {
         mr: &mut MemReader,
         strings_ptr: usize,
         strings_size: usize,
-        mut parent: Option<FdtNode>,
-    ) -> Result<Option<FdtNode>, Error> {
+        mut parent: Option<(String, FdtNode)>,
+    ) -> Result<Option<(String, FdtNode)>, Error> {
         loop {
             let token = mr.read_be::<u32>()?;
             match token.into() {
                 FdtToken::BeginNode => {
                     let name = mr.read_c_string()?;
                     let node = FdtNode {
-                        name,
-                        children: Vec::new(),
-                        props: Vec::new(),
+                        children: BTreeMap::new(),
+                        properties: BTreeMap::new(),
                     };
 
                     // Skip padding.
                     mr.set_position((mr.position() + 3) & !3);
 
-                    let node = FdtStructure::parse_node(
+                    let (name, node) = Self::parse_node(
                         mr,
                         strings_ptr,
                         strings_size,
-                        Some(node),
+                        Some((name, node)),
                     )?
-                    .ok_or(Error::Malformed)?;
+                    .ok_or(Error::MalformedStructure)?;
 
                     if let Some(mut parent_node) = parent {
-                        parent_node.children.push(node);
-                        parent = Some(parent_node);
+                        parent_node.1.children.insert(name, node);
+                        parent = Some((parent_node.0, parent_node.1));
                     } else {
-                        break Ok(Some(node));
+                        break Ok(Some((name, node)));
                     }
                 }
                 FdtToken::EndNode => {
                     if let Some(parent_node) = parent.take() {
                         break Ok(Some(parent_node));
                     } else {
-                        break Err(Error::Malformed);
+                        break Err(Error::MalformedStructure);
                     }
                 }
                 FdtToken::Prop => {
@@ -408,7 +454,7 @@ impl FdtStructure {
                     // block.
                     let name_ptr = strings_ptr + nameoff;
                     if name_ptr >= strings_ptr + strings_size {
-                        break Err(Error::Malformed);
+                        break Err(Error::MalformedStructure);
                     }
 
                     let name = ptr::read_c_string(name_ptr)?;
@@ -419,11 +465,14 @@ impl FdtStructure {
                     // Skip padding.
                     mr.set_position((mr.position() + 3) & !3);
 
-                    if let Some(mut tmp) = parent.take() {
-                        tmp.props.push(FdtProp { name, value });
-                        parent = Some(tmp);
+                    if let Some(mut parent_node) = parent.take() {
+                        parent_node
+                            .1
+                            .properties
+                            .insert(name, FdtProperty(value));
+                        parent = Some((parent_node.0, parent_node.1));
                     } else {
-                        break Err(Error::Malformed);
+                        break Err(Error::MalformedStructure);
                     }
                 }
                 FdtToken::Nop => {}
@@ -433,9 +482,78 @@ impl FdtStructure {
         }
     }
 
-    /// Returns the root nodes of the [`FdtStructure`].
-    pub fn root_nodes(&self) -> &[FdtNode] {
+    /// Returns the root node of the [`FdtStructure`].
+    pub fn root(&self) -> &FdtNode {
         &self.0
+    }
+
+    /// Returns a devicetree node by path. A unit address may be omitted if the
+    /// full path to the node is unambiguous.
+    pub fn find<P: AsRef<str>>(&self, path: P) -> Result<&FdtNode, Error> {
+        let path = path
+            .as_ref()
+            .strip_prefix('/')
+            .ok_or(Error::MalformedPath)?;
+
+        let mut node = &self.0;
+
+        if path.is_empty() {
+            return Ok(node);
+        }
+
+        for node_name in path.split('/') {
+            if node_name.contains('@') {
+                // A unit address has been specified and the match must be
+                // exact.
+                node = node.children().get(node_name).ok_or(Error::NotFound)?;
+                continue;
+            }
+
+            let matches = node
+                .children()
+                .iter()
+                .filter_map(|(child_name, child_node)| {
+                    let node_prefix = node_name.to_owned() + "@";
+                    if node_name == child_name
+                        || child_name.starts_with(&node_prefix)
+                    {
+                        Some(child_node)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<&FdtNode>>();
+
+            node = match matches.len() {
+                0 => return Err(Error::NotFound),
+                1 => matches[0],
+                _ => return Err(Error::AmbiguousPath),
+            };
+        }
+        Ok(node)
+    }
+
+    /// Returns a devicetree node by path. The match must be exact, thus unit
+    /// addresses cannot be omitted.
+    pub fn find_exact<P: AsRef<str>>(
+        &self,
+        path: P,
+    ) -> Result<&FdtNode, Error> {
+        let path = path
+            .as_ref()
+            .strip_prefix('/')
+            .ok_or(Error::MalformedPath)?;
+
+        let mut node = &self.0;
+
+        if path.is_empty() {
+            return Ok(node);
+        }
+
+        for node_name in path.split('/') {
+            node = node.children().get(node_name).ok_or(Error::NotFound)?;
+        }
+        Ok(node)
     }
 }
 
@@ -506,7 +624,7 @@ pub struct Fdt {
     mem_rsv_block: FdtMemRsvBlock,
 
     /// Devicetree structure.
-    tree: FdtStructure,
+    structure: FdtStructure,
 }
 
 impl Fdt {
@@ -527,7 +645,7 @@ impl Fdt {
             FdtMemRsvBlock::parse(ptr + (hdr.off_mem_rsvmap as usize))?;
 
         // Parse devicetree structure.
-        let tree = FdtStructure::parse(
+        let structure = FdtStructure::parse(
             ptr + (hdr.off_dt_struct as usize),
             hdr.size_dt_struct as usize,
             ptr + (hdr.off_dt_strings as usize),
@@ -540,7 +658,7 @@ impl Fdt {
             last_comp_version: hdr.last_comp_version,
             boot_cpuid_phys: hdr.boot_cpuid_phys,
             mem_rsv_block,
-            tree,
+            structure,
         })
     }
 
@@ -571,8 +689,8 @@ impl Fdt {
     }
 
     /// Returns the devicetree structure.
-    pub fn tree(&self) -> &FdtStructure {
-        &self.tree
+    pub fn structure(&self) -> &FdtStructure {
+        &self.structure
     }
 }
 

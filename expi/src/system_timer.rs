@@ -68,12 +68,6 @@ pub enum TimerStatus {
     Unknown,
 }
 
-impl Default for TimerStatus {
-    fn default() -> TimerStatus {
-        TimerStatus::Unknown
-    }
-}
-
 impl From<bool> for TimerStatus {
     fn from(status: bool) -> TimerStatus {
         if status {
@@ -140,7 +134,7 @@ impl SystemTimer {
 pub fn status() -> Status {
     let cs = unsafe { mmio::read(TIMER_CS) };
 
-    let mut status = [TimerStatus::default(); NTIMERS];
+    let mut status = [TimerStatus::Unknown; NTIMERS];
     for (i, status) in status.iter_mut().enumerate() {
         *status = (cs & (1 << i) != 0).into()
     }

@@ -164,12 +164,6 @@ pub enum Level {
     Unknown,
 }
 
-impl Default for Level {
-    fn default() -> Level {
-        Level::Unknown
-    }
-}
-
 impl From<bool> for Level {
     fn from(level: bool) -> Level {
         if level {
@@ -233,12 +227,6 @@ enum EventStatus {
 
     /// Unknown event status.
     Unknown,
-}
-
-impl Default for EventStatus {
-    fn default() -> EventStatus {
-        EventStatus::Unknown
-    }
 }
 
 impl From<bool> for EventStatus {
@@ -433,7 +421,7 @@ pub fn levels() -> Levels {
     }
 
     // Get levels.
-    let mut levels = [Level::default(); NPINS];
+    let mut levels = [Level::Unknown; NPINS];
     for (i, level) in levels.iter_mut().enumerate() {
         let n = i / 32;
         *level = (regs[n] & (1 << (i % 32)) != 0).into();
@@ -452,7 +440,7 @@ pub fn events() -> Events {
     }
 
     // Get event status.
-    let mut events = [EventStatus::default(); NPINS];
+    let mut events = [EventStatus::Unknown; NPINS];
     for (i, event) in events.iter_mut().enumerate() {
         let n = i / 32;
         *event = (regs[n] & (1 << (i % 32)) != 0).into();

@@ -16,7 +16,49 @@ fn kernel_main() {
 
     let fdt_mg = GLOBALS.fdt().lock();
     let fdt = fdt_mg.as_ref().unwrap();
-    println!("device tree: {:x?}", fdt.tree().root_nodes());
+
+    let node = fdt.structure().find_exact("/").unwrap();
+    let prop = node.properties().get("model").unwrap().to_string().unwrap();
+    println!("/model: {prop}");
+
+    let node = fdt.structure().find_exact("/arm-pmu").unwrap();
+    let prop = node
+        .properties()
+        .get("compatible")
+        .unwrap()
+        .to_stringlist()
+        .unwrap();
+    println!("/arm-pmu/compatible: {prop:?}");
+
+    let node = fdt
+        .structure()
+        .find_exact("/soc/local_intc@40000000")
+        .unwrap();
+    let prop = node
+        .properties()
+        .get("#interrupt-cells")
+        .unwrap()
+        .to_u32()
+        .unwrap();
+    println!("/soc/local_intc@40000000/#interrupt-cells: {prop}");
+
+    let node = fdt.structure().find("/soc/local_intc").unwrap();
+    let prop = node
+        .properties()
+        .get("#interrupt-cells")
+        .unwrap()
+        .to_u32()
+        .unwrap();
+    println!("/soc/local_intc/#interrupt-cells: {prop}");
+
+    let node = fdt.structure().find_exact("/cpus/cpu@0").unwrap();
+    let prop = node
+        .properties()
+        .get("cpu-release-addr")
+        .unwrap()
+        .to_u64()
+        .unwrap();
+    println!("/cpus/cpu@0/cpu-release-addr: {prop:#x}");
 
     let free_mem_size = mm::free_memory_size().unwrap() as f32;
     println!("free memory: {} MiB", free_mem_size / 1024.0 / 1024.0);

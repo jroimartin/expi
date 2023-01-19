@@ -199,15 +199,6 @@ enum IntStatus {
 
     /// The interrupt is not pending.
     NotPending,
-
-    /// Unknown status.
-    Unknown,
-}
-
-impl Default for IntStatus {
-    fn default() -> IntStatus {
-        IntStatus::Unknown
-    }
 }
 
 impl From<bool> for IntStatus {
