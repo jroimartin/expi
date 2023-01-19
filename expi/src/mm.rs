@@ -108,9 +108,8 @@ impl GlobalAllocator {
         let mut free_mem_mg = GLOBALS.free_memory().lock();
         let free_mem = free_mem_mg.as_mut().ok_or(AllocError::Uninitialized)?;
 
-        let layout = layout.pad_to_align();
+        let size = alloc_size(&layout);
         let align = layout.align() as u64;
-        let size = layout.size() as u64;
 
         let mut reserved = None;
         for region in free_mem.ranges() {
@@ -130,6 +129,7 @@ impl GlobalAllocator {
 
         let reserved = reserved.ok_or(AllocError::NotSatisfiable)?;
         free_mem.remove(reserved)?;
+
         Ok(reserved.start() as *mut u8)
     }
 
@@ -154,8 +154,7 @@ impl GlobalAllocator {
         let mut free_mem_mg = GLOBALS.free_memory().lock();
         let free_mem = free_mem_mg.as_mut().ok_or(AllocError::Uninitialized)?;
 
-        let layout = layout.pad_to_align();
-        let size = layout.size() as u64;
+        let size = alloc_size(&layout);
 
         let start = ptr as u64;
         let end = start
@@ -167,6 +166,29 @@ impl GlobalAllocator {
 
         Ok(())
     }
+}
+
+/// Returns the allocation size for a given layout.
+///
+/// It reduces fragmentation by grouping small allocations into frequent
+/// allocation sizes.
+fn alloc_size(layout: &Layout) -> u64 {
+    let layout = layout.pad_to_align();
+    let size = layout.size();
+
+    if size <= 32 {
+        return 32;
+    } else if size <= 64 {
+        return 64;
+    } else if size <= 128 {
+        return 128;
+    } else if size <= 256 {
+        return 256;
+    } else if size <= 512 {
+        return 512;
+    }
+
+    size as u64
 }
 
 unsafe impl GlobalAlloc for GlobalAllocator {
@@ -218,9 +240,10 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
         free_mem.remove(rsv)?;
     }
 
-    // Reserve the memory region where the kernel is located.
-    let kernel_region =
-        Range::new(KERNEL_BASE, KERNEL_BASE + KERNEL_MAX_SIZE - 1)?;
+    // Reserve the memory region where the kernel is located. It starts at 0,
+    // because the range [0, KERNEL_BASE) is used for global variables (first
+    // two pages) and for the stack used during initialization.
+    let kernel_region = Range::new(0, KERNEL_BASE + KERNEL_MAX_SIZE - 1)?;
     free_mem.remove(kernel_region)?;
 
     // Set globals.
