@@ -37,10 +37,6 @@ pub enum Error {
     /// Unknown token found when parsing the devicetree.
     UnknownToken(u32),
 
-    /// The size of the parsed devicetree structure does not match the one in
-    /// the devicetree header.
-    InvalidStructureSize(usize),
-
     /// Malformed devicetree structure.
     MalformedStructure,
 
@@ -93,9 +89,6 @@ impl fmt::Display for Error {
                 write!(f, "memory reservation internal buffer is full")
             }
             Error::UnknownToken(token) => write!(f, "unknown token: {token}"),
-            Error::InvalidStructureSize(size) => {
-                write!(f, "invalid structure size: {size}")
-            }
             Error::MalformedStructure => {
                 write!(f, "malformed devicetree structure")
             }
@@ -375,31 +368,37 @@ impl FdtStructure {
         strings_size: usize,
     ) -> Result<FdtStructure, Error> {
         let mut mr = MemReader::new(struct_ptr);
-        let mut root_nodes = BTreeMap::new();
-        while let Some((name, node)) =
-            Self::parse_node(&mut mr, strings_ptr, strings_size, None)?
-        {
-            root_nodes.insert(name, node);
+
+        // The devicetree structure must begin with a BeginNode token.
+        if !matches!(mr.read_be::<u32>()?.into(), FdtToken::BeginNode) {
+            return Err(Error::MalformedStructure);
+        }
+
+        // Parse nodes.
+        let (node_name, node) =
+            Self::parse_node(&mut mr, strings_ptr, strings_size)?;
+
+        // The devicetree structure must end with an End token.
+        if !matches!(mr.read_be::<u32>()?.into(), FdtToken::End) {
+            return Err(Error::MalformedStructure);
         }
 
         // The size of the parsed devicetree structure must match the one in
         // the header.
         let parsed_size = mr.position() - struct_ptr;
         if parsed_size != struct_size {
-            return Err(Error::InvalidStructureSize(parsed_size));
-        }
-
-        // There must be only one root node.
-        if root_nodes.len() != 1 {
             return Err(Error::MalformedStructure);
         }
 
         // The name of the root node is an empty string.
-        let root = root_nodes.remove("").ok_or(Error::MalformedStructure)?;
-        Ok(FdtStructure(root))
+        if !node_name.is_empty() {
+            return Err(Error::MalformedStructure);
+        }
+
+        Ok(FdtStructure(node))
     }
 
-    /// Parses a devicetree node and its subtree.
+    /// Parses a devicetree node. Returns the tuple `(name, node)`.
     ///
     /// # Safety
     ///
@@ -409,77 +408,68 @@ impl FdtStructure {
         mr: &mut MemReader,
         strings_ptr: usize,
         strings_size: usize,
-        mut parent: Option<(String, FdtNode)>,
-    ) -> Result<Option<(String, FdtNode)>, Error> {
+    ) -> Result<(String, FdtNode), Error> {
+        let node_name = mr.read_c_string()?;
+        // Skip padding.
+        mr.set_position((mr.position() + 3) & !3);
+
+        let mut node = FdtNode {
+            children: BTreeMap::new(),
+            properties: BTreeMap::new(),
+        };
+
         loop {
             let token = mr.read_be::<u32>()?;
             match token.into() {
                 FdtToken::BeginNode => {
-                    let name = mr.read_c_string()?;
-                    let node = FdtNode {
-                        children: BTreeMap::new(),
-                        properties: BTreeMap::new(),
-                    };
-
-                    // Skip padding.
-                    mr.set_position((mr.position() + 3) & !3);
-
-                    let (name, node) = Self::parse_node(
-                        mr,
-                        strings_ptr,
-                        strings_size,
-                        Some((name, node)),
-                    )?
-                    .ok_or(Error::MalformedStructure)?;
-
-                    if let Some(mut parent_node) = parent {
-                        parent_node.1.children.insert(name, node);
-                        parent = Some((parent_node.0, parent_node.1));
-                    } else {
-                        break Ok(Some((name, node)));
-                    }
+                    let (child_name, child) =
+                        Self::parse_node(mr, strings_ptr, strings_size)?;
+                    node.children.insert(child_name, child);
                 }
-                FdtToken::EndNode => {
-                    if let Some(parent_node) = parent.take() {
-                        break Ok(Some(parent_node));
-                    } else {
-                        break Err(Error::MalformedStructure);
-                    }
-                }
+                FdtToken::EndNode => break,
                 FdtToken::Prop => {
-                    let len = mr.read_be::<u32>()? as usize;
-                    let nameoff = mr.read_be::<u32>()? as usize;
-
-                    // Check that the string offset is inside the strings
-                    // block.
-                    let name_ptr = strings_ptr + nameoff;
-                    if name_ptr >= strings_ptr + strings_size {
-                        break Err(Error::MalformedStructure);
-                    }
-
-                    let name = ptr::read_c_string(name_ptr)?;
-
-                    let mut value = vec![0u8; len];
-                    mr.read(&mut value);
-
-                    // Skip padding.
-                    mr.set_position((mr.position() + 3) & !3);
-
-                    if let Some(mut parent_node) = parent.take() {
-                        parent_node
-                            .1
-                            .properties
-                            .insert(name, FdtProperty(value));
-                        parent = Some((parent_node.0, parent_node.1));
-                    } else {
-                        break Err(Error::MalformedStructure);
-                    }
+                    let (prop_name, prop) =
+                        Self::parse_property(mr, strings_ptr, strings_size)?;
+                    node.properties.insert(prop_name, prop);
                 }
                 FdtToken::Nop => {}
-                FdtToken::End => break Ok(None),
-                FdtToken::Unknown => break Err(Error::UnknownToken(token)),
+                FdtToken::End => return Err(Error::MalformedStructure),
+                FdtToken::Unknown => return Err(Error::UnknownToken(token)),
             }
         }
+
+        Ok((node_name, node))
+    }
+
+    /// Parses a devicetree property. Returns the tuple `(name, property)`.
+    ///
+    /// # Safety
+    ///
+    /// This function accepts a [`MemReader`], allowing it to potentially read
+    /// an arbitrary memory address.
+    unsafe fn parse_property(
+        mr: &mut MemReader,
+        strings_ptr: usize,
+        strings_size: usize,
+    ) -> Result<(String, FdtProperty), Error> {
+        let len = mr.read_be::<u32>()? as usize;
+        let nameoff = mr.read_be::<u32>()? as usize;
+
+        // Check that the string offset is inside the strings block.
+        let name_ptr = strings_ptr + nameoff;
+        if name_ptr >= strings_ptr + strings_size {
+            return Err(Error::MalformedStructure);
+        }
+
+        let name = ptr::read_c_string(name_ptr)?;
+
+        let mut value = vec![0u8; len];
+        mr.read(&mut value);
+
+        // Skip padding.
+        mr.set_position((mr.position() + 3) & !3);
+
+        Ok((name, FdtProperty(value)))
     }
 
     /// Returns the root node of the [`FdtStructure`].
