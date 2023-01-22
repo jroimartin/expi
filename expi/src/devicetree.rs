@@ -529,9 +529,8 @@ impl FdtStructure {
                 .children()
                 .iter()
                 .filter_map(|(child_name, child_node)| {
-                    let node_prefix = format!("{node_name}@");
                     if node_name == child_name
-                        || child_name.starts_with(&node_prefix)
+                        || child_name.starts_with(&format!("{node_name}@"))
                     {
                         Some(child_node)
                     } else {
