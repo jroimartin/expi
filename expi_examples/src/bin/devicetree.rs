@@ -18,7 +18,7 @@ fn kernel_main() {
     let fdt = fdt_mg.as_ref().unwrap();
 
     // Iterator.
-    for (path, node) in fdt.structure().iter() {
+    for (path, node) in fdt.structure() {
         println!("path={path} properties={:x?}", node.properties().keys());
     }
 
