@@ -1,10 +1,9 @@
 //! Devicetree parser.
 
-use alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
 use alloc::string::{FromUtf8Error, String};
-use alloc::vec;
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::array::TryFromSliceError;
 use core::fmt;
 
@@ -331,6 +330,9 @@ impl FdtProperty {
 /// Represents a node of the devicetree.
 #[derive(Debug)]
 pub struct FdtNode {
+    /// Path of the node in the devicetree structure.
+    path: String,
+
     /// Node's children.
     children: BTreeMap<String, FdtNode>,
 
@@ -339,6 +341,11 @@ pub struct FdtNode {
 }
 
 impl FdtNode {
+    /// Returns the path of the node in the devicetree structure.
+    pub fn path(&self) -> String {
+        self.path.clone()
+    }
+
     /// Returns the node's children.
     pub fn children(&self) -> &BTreeMap<String, FdtNode> {
         &self.children
@@ -347,6 +354,12 @@ impl FdtNode {
     /// Returns the node's properties.
     pub fn properties(&self) -> &BTreeMap<String, FdtProperty> {
         &self.properties
+    }
+
+    /// Returns an iterator over the nodes of a devicetree structure starting
+    /// at this node.
+    pub fn iter(&self) -> Iter {
+        Iter::new(self)
     }
 }
 
@@ -376,7 +389,7 @@ impl FdtStructure {
 
         // Parse nodes.
         let (node_name, node) =
-            Self::parse_node(&mut mr, strings_ptr, strings_size)?;
+            Self::parse_node("", &mut mr, strings_ptr, strings_size)?;
 
         // The devicetree structure must end with an End token.
         if !matches!(mr.read_be::<u32>()?.into(), FdtToken::End) {
@@ -404,16 +417,22 @@ impl FdtStructure {
     ///
     /// This function accepts a [`MemReader`], allowing it to potentially read
     /// an arbitrary memory address.
-    unsafe fn parse_node(
+    unsafe fn parse_node<P>(
+        parent_path: P,
         mr: &mut MemReader,
         strings_ptr: usize,
         strings_size: usize,
-    ) -> Result<(String, FdtNode), Error> {
+    ) -> Result<(String, FdtNode), Error>
+    where
+        P: AsRef<str>,
+    {
         let node_name = mr.read_c_string()?;
         // Skip padding.
         mr.set_position((mr.position() + 3) & !3);
 
+        let parent_path = parent_path.as_ref().trim_end_matches('/');
         let mut node = FdtNode {
+            path: format!("{parent_path}/{node_name}"),
             children: BTreeMap::new(),
             properties: BTreeMap::new(),
         };
@@ -422,8 +441,12 @@ impl FdtStructure {
             let token = mr.read_be::<u32>()?;
             match token.into() {
                 FdtToken::BeginNode => {
-                    let (child_name, child) =
-                        Self::parse_node(mr, strings_ptr, strings_size)?;
+                    let (child_name, child) = Self::parse_node(
+                        &node.path,
+                        mr,
+                        strings_ptr,
+                        strings_size,
+                    )?;
                     node.children.insert(child_name, child);
                 }
                 FdtToken::EndNode => break,
@@ -506,7 +529,7 @@ impl FdtStructure {
                 .children()
                 .iter()
                 .filter_map(|(child_name, child_node)| {
-                    let node_prefix = node_name.to_owned() + "@";
+                    let node_prefix = format!("{node_name}@");
                     if node_name == child_name
                         || child_name.starts_with(&node_prefix)
                     {
@@ -550,11 +573,8 @@ impl FdtStructure {
     }
 
     /// Returns an iterator over the nodes of the devicetree structure.
-    ///
-    /// The iterator yields the tuple `(path, node)` for every node in the
-    /// devicetree.
     pub fn iter(&self) -> Iter {
-        Iter::new(&self.0)
+        self.0.iter()
     }
 }
 
@@ -709,39 +729,34 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
     Ok(())
 }
 
-/// Iterator over the nodes of an [`FdtStructure`].
+/// Iterator over the nodes of the subree of an [`FdtNode`].
+///
+/// It yields a reference to every visited node.
 pub struct Iter<'a> {
-    /// Contains all the paths and the corresponding nodes of the
-    /// [`FdtStructure`].
-    items: Vec<(String, &'a FdtNode)>,
+    /// Contains all the nodes in the subree of a given [`FdtNode`].
+    items: Vec<&'a FdtNode>,
 
     /// Index of the next item that must be returned by the iterator.
     cur: usize,
 }
 
 impl Iter<'_> {
-    /// Creates an iterator that traverses the devicetree starting from `root`.
-    fn new(root: &FdtNode) -> Iter {
+    /// Creates an iterator that traverses a devicetree structure starting at
+    /// `node`.
+    fn new(node: &FdtNode) -> Iter {
         Iter {
-            items: Self::traverse("/", root),
+            items: Self::traverse(node),
             cur: 0,
         }
     }
 
-    /// Traverses the devicetree starting from `node` and returns the visited
-    /// `(path, node)`.
-    fn traverse<P>(path: P, node: &FdtNode) -> Vec<(String, &FdtNode)>
-    where
-        P: AsRef<str>,
-    {
-        let path = path.as_ref();
+    /// Traverses the devicetree starting at `node` and returns the visited
+    /// nodes.
+    fn traverse(node: &FdtNode) -> Vec<&FdtNode> {
+        let mut nodes = vec![node];
 
-        let mut nodes = vec![(path.to_owned(), node)];
-
-        let prefix = path.trim_end_matches('/').to_owned() + "/";
-        for (child_name, child) in node.children() {
-            let mut visited =
-                Self::traverse(prefix.clone() + child_name, child);
+        for child in node.children().values() {
+            let mut visited = Self::traverse(child);
             nodes.append(&mut visited);
         }
 
@@ -750,7 +765,7 @@ impl Iter<'_> {
 }
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = (String, &'a FdtNode);
+    type Item = &'a FdtNode;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.items
@@ -764,7 +779,16 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 impl<'a> IntoIterator for &'a FdtStructure {
-    type Item = (String, &'a FdtNode);
+    type Item = &'a FdtNode;
+    type IntoIter = Iter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a FdtNode {
+    type Item = &'a FdtNode;
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {

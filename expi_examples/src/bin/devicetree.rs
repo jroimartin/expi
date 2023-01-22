@@ -18,9 +18,26 @@ fn kernel_main() {
     let fdt = fdt_mg.as_ref().unwrap();
 
     // Iterator.
-    for (path, node) in fdt.structure() {
-        println!("path={path} properties={:x?}", node.properties().keys());
+    for node in fdt.structure() {
+        println!(
+            "path={} properties={:x?}",
+            node.path(),
+            node.properties().keys()
+        );
     }
+
+    println!("---");
+
+    let cpus = fdt.structure().find_exact("/cpus").unwrap();
+    for node in cpus {
+        println!(
+            "path={} properties={:x?}",
+            node.path(),
+            node.properties().keys()
+        );
+    }
+
+    println!("---");
 
     // Find.
     let node = fdt.structure().find_exact("/").unwrap();
