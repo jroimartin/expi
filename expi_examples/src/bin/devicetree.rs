@@ -17,6 +17,12 @@ fn kernel_main() {
     let fdt_mg = GLOBALS.fdt().lock();
     let fdt = fdt_mg.as_ref().unwrap();
 
+    // Iterator.
+    for (path, node) in fdt.structure().iter() {
+        println!("path={path} properties={:x?}", node.properties().keys());
+    }
+
+    // Find.
     let node = fdt.structure().find_exact("/").unwrap();
     let prop = node.properties().get("model").unwrap().to_string().unwrap();
     println!("/model: {prop}");
@@ -60,6 +66,7 @@ fn kernel_main() {
         .unwrap();
     println!("/cpus/cpu@0/cpu-release-addr: {prop:#x}");
 
+    // Free memory.
     let free_mem_size = mm::free_memory_size().unwrap() as f32;
     println!("free memory: {} MiB", free_mem_size / 1024.0 / 1024.0);
 

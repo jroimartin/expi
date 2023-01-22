@@ -479,7 +479,10 @@ impl FdtStructure {
 
     /// Returns a devicetree node by path. A unit address may be omitted if the
     /// full path to the node is unambiguous.
-    pub fn find<P: AsRef<str>>(&self, path: P) -> Result<&FdtNode, Error> {
+    pub fn find<P>(&self, path: P) -> Result<&FdtNode, Error>
+    where
+        P: AsRef<str>,
+    {
         let path = path
             .as_ref()
             .strip_prefix('/')
@@ -525,10 +528,10 @@ impl FdtStructure {
 
     /// Returns a devicetree node by path. The match must be exact, thus unit
     /// addresses cannot be omitted.
-    pub fn find_exact<P: AsRef<str>>(
-        &self,
-        path: P,
-    ) -> Result<&FdtNode, Error> {
+    pub fn find_exact<P>(&self, path: P) -> Result<&FdtNode, Error>
+    where
+        P: AsRef<str>,
+    {
         let path = path
             .as_ref()
             .strip_prefix('/')
@@ -544,6 +547,14 @@ impl FdtStructure {
             node = node.children().get(node_name).ok_or(Error::NotFound)?;
         }
         Ok(node)
+    }
+
+    /// Returns an iterator over the nodes of the devicetree structure.
+    ///
+    /// The iterator yields the tuple `(path, node)` for every node in the
+    /// devicetree.
+    pub fn iter(&self) -> Iter {
+        Iter::new(&self.0)
     }
 }
 
@@ -696,4 +707,67 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
     *fdt_mg = Some(fdt);
 
     Ok(())
+}
+
+/// Iterator over the nodes of an [`FdtStructure`].
+pub struct Iter<'a> {
+    /// Contains all the paths and the corresponding nodes of the
+    /// [`FdtStructure`].
+    items: Vec<(String, &'a FdtNode)>,
+
+    /// Index of the next item that must be returned by the iterator.
+    cur: usize,
+}
+
+impl Iter<'_> {
+    /// Creates an iterator that traverses the devicetree starting from `root`.
+    fn new(root: &FdtNode) -> Iter {
+        Iter {
+            items: Self::traverse("/", root),
+            cur: 0,
+        }
+    }
+
+    /// Traverses the devicetree starting from `node` and returns the visited
+    /// `(path, node)`.
+    fn traverse<P>(path: P, node: &FdtNode) -> Vec<(String, &FdtNode)>
+    where
+        P: AsRef<str>,
+    {
+        let path = path.as_ref();
+
+        let mut nodes = vec![(path.to_owned(), node)];
+
+        let prefix = path.trim_end_matches('/').to_owned() + "/";
+        for (child_name, child) in node.children() {
+            let mut visited =
+                Self::traverse(prefix.clone() + child_name, child);
+            nodes.append(&mut visited);
+        }
+
+        nodes
+    }
+}
+
+impl<'a> Iterator for Iter<'a> {
+    type Item = (String, &'a FdtNode);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.items
+            .get(self.cur)
+            .map(|item| {
+                self.cur += 1;
+                item
+            })
+            .cloned()
+    }
+}
+
+impl<'a> IntoIterator for &'a FdtStructure {
+    type Item = (String, &'a FdtNode);
+    type IntoIter = Iter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
 }
