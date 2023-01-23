@@ -714,20 +714,6 @@ impl Fdt {
     }
 }
 
-/// Initializes the global devicetree.
-pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
-    let mut fdt_mg = GLOBALS.fdt().lock();
-    if fdt_mg.is_some() {
-        // Already initialized.
-        return Ok(());
-    }
-
-    let fdt = unsafe { Fdt::parse(dtb_ptr32 as usize)? };
-    *fdt_mg = Some(fdt);
-
-    Ok(())
-}
-
 /// Iterator over the nodes of the subree of an [`FdtNode`].
 ///
 /// It yields a reference to every visited node.
@@ -793,4 +779,18 @@ impl<'a> IntoIterator for &'a FdtNode {
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
+}
+
+/// Initializes the global devicetree.
+pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
+    let mut fdt_mg = GLOBALS.fdt().lock();
+    if fdt_mg.is_some() {
+        // Already initialized.
+        return Ok(());
+    }
+
+    let fdt = unsafe { Fdt::parse(dtb_ptr32 as usize)? };
+    *fdt_mg = Some(fdt);
+
+    Ok(())
 }
