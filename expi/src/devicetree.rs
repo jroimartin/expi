@@ -101,7 +101,11 @@ impl fmt::Display for Error {
 }
 
 /// Flattened Devicetree header.
-struct FdtHeader {
+#[derive(Debug)]
+pub struct FdtHeader {
+    /// Pointer to this FDT header.
+    ptr: usize,
+
     /// DTB magic. Must be 0xd00dfeed.
     magic: u32,
 
@@ -153,6 +157,7 @@ impl FdtHeader {
         let mut mr = MemReader::new(ptr);
 
         let fdt = FdtHeader {
+            ptr,
             magic: mr.read_be::<u32>()?,
             totalsize: mr.read_be::<u32>()?,
             off_dt_struct: mr.read_be::<u32>()?,
@@ -181,6 +186,16 @@ impl FdtHeader {
         }
 
         Ok(fdt)
+    }
+
+    /// Returns the total size of the Flattened Devicetree.
+    pub fn totalsize(&self) -> u32 {
+        self.totalsize
+    }
+
+    /// Returns the physical ID of the system's boot CPU.
+    pub fn boot_cpuid_phys(&self) -> u32 {
+        self.boot_cpuid_phys
     }
 }
 
@@ -217,13 +232,9 @@ pub struct FdtMemRsvBlock {
 }
 
 impl FdtMemRsvBlock {
-    /// Parses the memory reservation block at `ptr`.
-    ///
-    /// # Safety
-    ///
-    /// This function accepts an arbitrary memory address, therefore it is
-    /// unsafe.
-    unsafe fn parse(ptr: usize) -> Result<FdtMemRsvBlock, Error> {
+    /// Parses the memory reservation block.
+    fn parse(header: &FdtHeader) -> Result<FdtMemRsvBlock, Error> {
+        let ptr = header.ptr + (header.off_mem_rsvmap as usize);
         let mut mr = MemReader::new(ptr);
 
         let mut regions = [FdtMemRsvRegion::default(); FDT_MEM_RSVMAP_SIZE];
@@ -233,8 +244,8 @@ impl FdtMemRsvBlock {
                 return Err(Error::FullRsvRegions);
             }
 
-            let address = mr.read_be::<u64>()?;
-            let size = mr.read_be::<u64>()?;
+            let address = unsafe { mr.read_be::<u64>()? };
+            let size = unsafe { mr.read_be::<u64>()? };
 
             if address == 0 && size == 0 {
                 break;
@@ -368,38 +379,31 @@ impl FdtNode {
 pub struct FdtStructure(FdtNode);
 
 impl FdtStructure {
-    /// Parses the structure block at `ptr`.
-    ///
-    /// # Safety
-    ///
-    /// This function accepts an arbitrary memory address, therefore it is
-    /// unsafe.
-    unsafe fn parse(
-        struct_ptr: usize,
-        struct_size: usize,
-        strings_ptr: usize,
-        strings_size: usize,
-    ) -> Result<FdtStructure, Error> {
-        let mut mr = MemReader::new(struct_ptr);
+    /// Parses the structure block.
+    fn parse(header: &FdtHeader) -> Result<FdtStructure, Error> {
+        let ptr = header.ptr + (header.off_dt_struct as usize);
+        let mut mr = MemReader::new(ptr);
 
         // The devicetree structure must begin with a BeginNode token.
-        if !matches!(mr.read_be::<u32>()?.into(), FdtToken::BeginNode) {
+        let token = unsafe { mr.read_be::<u32>()?.into() };
+        if !matches!(token, FdtToken::BeginNode) {
             return Err(Error::MalformedStructure);
         }
 
         // Parse nodes.
         let (node_name, node) =
-            Self::parse_node("", &mut mr, strings_ptr, strings_size)?;
+            unsafe { Self::parse_node("", &mut mr, header)? };
 
         // The devicetree structure must end with an End token.
-        if !matches!(mr.read_be::<u32>()?.into(), FdtToken::End) {
+        let token = unsafe { mr.read_be::<u32>()?.into() };
+        if !matches!(token, FdtToken::End) {
             return Err(Error::MalformedStructure);
         }
 
         // The size of the parsed devicetree structure must match the one in
         // the header.
-        let parsed_size = mr.position() - struct_ptr;
-        if parsed_size != struct_size {
+        let parsed_size = mr.position() - ptr;
+        if parsed_size != header.size_dt_struct as usize {
             return Err(Error::MalformedStructure);
         }
 
@@ -420,8 +424,7 @@ impl FdtStructure {
     unsafe fn parse_node<P>(
         parent_path: P,
         mr: &mut MemReader,
-        strings_ptr: usize,
-        strings_size: usize,
+        header: &FdtHeader,
     ) -> Result<(String, FdtNode), Error>
     where
         P: AsRef<str>,
@@ -441,18 +444,13 @@ impl FdtStructure {
             let token = mr.read_be::<u32>()?;
             match token.into() {
                 FdtToken::BeginNode => {
-                    let (child_name, child) = Self::parse_node(
-                        &node.path,
-                        mr,
-                        strings_ptr,
-                        strings_size,
-                    )?;
+                    let (child_name, child) =
+                        Self::parse_node(&node.path, mr, header)?;
                     node.children.insert(child_name, child);
                 }
                 FdtToken::EndNode => break,
                 FdtToken::Prop => {
-                    let (prop_name, prop) =
-                        Self::parse_property(mr, strings_ptr, strings_size)?;
+                    let (prop_name, prop) = Self::parse_property(mr, header)?;
                     node.properties.insert(prop_name, prop);
                 }
                 FdtToken::Nop => {}
@@ -472,9 +470,11 @@ impl FdtStructure {
     /// an arbitrary memory address.
     unsafe fn parse_property(
         mr: &mut MemReader,
-        strings_ptr: usize,
-        strings_size: usize,
+        header: &FdtHeader,
     ) -> Result<(String, FdtProperty), Error> {
+        let strings_ptr = header.ptr + (header.off_dt_strings as usize);
+        let strings_size = header.size_dt_strings as usize;
+
         let len = mr.read_be::<u32>()? as usize;
         let nameoff = mr.read_be::<u32>()? as usize;
 
@@ -577,21 +577,22 @@ impl FdtStructure {
     }
 }
 
-/// SimpleFdt is a simplified version of the Flattened Devicetree. It is the
+/// EarlyFdt is a simplified version of the Flattened Devicetree. It is the
 /// result of parsing the minimum necessary fields required during the early
-/// stages of the kernel initialization. It does not requires a Global
-/// Allocator.
+/// stages of the kernel initialization.
+///
+/// It does not require a Global Allocator.
 #[derive(Debug)]
-pub struct SimpleFdt {
-    /// Total size of the Flattened Devicetree.
-    fdt_size: u32,
+pub struct EarlyFdt {
+    /// FDT header.
+    header: FdtHeader,
 
     /// Memory reservation block.
     mem_rsv_block: FdtMemRsvBlock,
 }
 
-impl SimpleFdt {
-    /// Parses enough of a Flattened Devicetree to produce a [`SimpleFdt`].
+impl EarlyFdt {
+    /// Parses enough of a Flattened Devicetree to produce an [`EarlyFdt`].
     ///
     /// `ptr` must point to the beginning of a valid FDT.
     ///
@@ -599,23 +600,22 @@ impl SimpleFdt {
     ///
     /// This function accepts an arbitrary memory address, therefore it is
     /// unsafe.
-    pub unsafe fn parse(ptr: usize) -> Result<SimpleFdt, Error> {
+    pub unsafe fn parse(ptr: usize) -> Result<EarlyFdt, Error> {
         // Parse devicetree header.
-        let hdr = FdtHeader::parse(ptr)?;
+        let header = FdtHeader::parse(ptr)?;
 
         // Parse reserved memory regions.
-        let mem_rsv_block =
-            FdtMemRsvBlock::parse(ptr + (hdr.off_mem_rsvmap as usize))?;
+        let mem_rsv_block = FdtMemRsvBlock::parse(&header)?;
 
-        Ok(SimpleFdt {
-            fdt_size: hdr.totalsize,
+        Ok(EarlyFdt {
+            header,
             mem_rsv_block,
         })
     }
 
-    /// Returns the total size of the Flattened Devicetree.
-    pub fn fdt_size(&self) -> u32 {
-        self.fdt_size
+    /// Returns the FDT header.
+    pub fn header(&self) -> &FdtHeader {
+        &self.header
     }
 
     /// Returns the memory reservation block.
@@ -627,18 +627,8 @@ impl SimpleFdt {
 /// Represents a Flattened Devicetree.
 #[derive(Debug)]
 pub struct Fdt {
-    /// Total size of the Flattened Devicetree.
-    totalsize: u32,
-
-    /// Version of the devicetree data structure.
-    version: u32,
-
-    /// Lowest version of the devicetree data structure with which the version
-    /// used is backwards compatible.
-    last_comp_version: u32,
-
-    /// Physical ID of the system's boot CPU.
-    boot_cpuid_phys: u32,
+    /// Flattened Devicetree header.
+    header: FdtHeader,
 
     /// Memory reservation block.
     mem_rsv_block: FdtMemRsvBlock,
@@ -658,49 +648,24 @@ impl Fdt {
     /// unsafe.
     pub unsafe fn parse(ptr: usize) -> Result<Fdt, Error> {
         // Parse devicetree header.
-        let hdr = FdtHeader::parse(ptr)?;
+        let header = FdtHeader::parse(ptr)?;
 
         // Parse reserved memory regions.
-        let mem_rsv_block =
-            FdtMemRsvBlock::parse(ptr + (hdr.off_mem_rsvmap as usize))?;
+        let mem_rsv_block = FdtMemRsvBlock::parse(&header)?;
 
         // Parse devicetree structure.
-        let structure = FdtStructure::parse(
-            ptr + (hdr.off_dt_struct as usize),
-            hdr.size_dt_struct as usize,
-            ptr + (hdr.off_dt_strings as usize),
-            hdr.size_dt_strings as usize,
-        )?;
+        let structure = FdtStructure::parse(&header)?;
 
         Ok(Fdt {
-            totalsize: hdr.totalsize,
-            version: hdr.version,
-            last_comp_version: hdr.last_comp_version,
-            boot_cpuid_phys: hdr.boot_cpuid_phys,
+            header,
             mem_rsv_block,
             structure,
         })
     }
 
-    /// Returns the total size of the Flattened Devicetree.
-    pub fn totalsize(&self) -> u32 {
-        self.totalsize
-    }
-
-    /// Returns the version of the devicetree data structure.
-    pub fn version(&self) -> u32 {
-        self.version
-    }
-
-    /// Returns the lowest version of the devicetree data structure with which
-    /// the version used is backwards compatible.
-    pub fn last_comp_version(&self) -> u32 {
-        self.last_comp_version
-    }
-
-    /// Returns the physical ID of the system's boot CPU.
-    pub fn boot_cpuid_phys(&self) -> u32 {
-        self.boot_cpuid_phys
+    /// Returns the FDT header.
+    pub fn header(&self) -> &FdtHeader {
+        &self.header
     }
 
     /// Returns the memory reservation block.

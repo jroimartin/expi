@@ -222,17 +222,16 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
     free_mem.insert(arm_mem_region)?;
 
     // Parse DTB.
-    let simple_fdt =
-        unsafe { devicetree::SimpleFdt::parse(dtb_ptr32 as usize)? };
+    let early_fdt = unsafe { devicetree::EarlyFdt::parse(dtb_ptr32 as usize)? };
 
     // Reserve the memory region where the DTB itself is stored.
-    let fdt_size = simple_fdt.fdt_size();
+    let fdt_size = early_fdt.header().totalsize();
     let dtb_region =
         Range::new(dtb_ptr32 as u64, (dtb_ptr32 + fdt_size - 1) as u64)?;
     free_mem.remove(dtb_region)?;
 
     // Reserve the regions found in the DTB's memory reservation block.
-    let mem_rsv_block = simple_fdt.mem_rsv_block();
+    let mem_rsv_block = early_fdt.mem_rsv_block();
     for region in mem_rsv_block.regions() {
         let addr = region.address();
         let size = region.size();
