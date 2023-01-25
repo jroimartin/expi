@@ -5,10 +5,10 @@
 pub trait FromBytes {
     /// Creates a value from its representation as a byte array in little
     /// endian.
-    fn from_le_bytes<B: AsRef<[u8]>>(buf: B) -> Self;
+    fn from_le_bytes(buf: impl AsRef<[u8]>) -> Self;
 
     /// Creates a value from its representation as a byte array in big endian.
-    fn from_be_bytes<B: AsRef<[u8]>>(buf: B) -> Self;
+    fn from_be_bytes(buf: impl AsRef<[u8]>) -> Self;
 }
 
 /// This macro implements the trait [`FromBytes`] for the provided type. This
@@ -17,13 +17,13 @@ pub trait FromBytes {
 macro_rules! impl_from_bytes {
     ($Ty:ty) => {
         impl FromBytes for $Ty {
-            fn from_le_bytes<B: AsRef<[u8]>>(buf: B) -> Self {
+            fn from_le_bytes(buf: impl AsRef<[u8]>) -> Self {
                 <$Ty>::from_le_bytes(
                     buf.as_ref().try_into().expect("invalid buffer size"),
                 )
             }
 
-            fn from_be_bytes<B: AsRef<[u8]>>(buf: B) -> Self {
+            fn from_be_bytes(buf: impl AsRef<[u8]>) -> Self {
                 <$Ty>::from_be_bytes(
                     buf.as_ref().try_into().expect("invalid buffer size"),
                 )

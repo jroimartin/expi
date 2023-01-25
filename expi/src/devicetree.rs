@@ -421,14 +421,11 @@ impl FdtStructure {
     ///
     /// This function accepts a [`MemReader`], allowing it to potentially read
     /// an arbitrary memory address.
-    unsafe fn parse_node<P>(
-        parent_path: P,
+    unsafe fn parse_node(
+        parent_path: impl AsRef<str>,
         mr: &mut MemReader,
         header: &FdtHeader,
-    ) -> Result<(String, FdtNode), Error>
-    where
-        P: AsRef<str>,
-    {
+    ) -> Result<(String, FdtNode), Error> {
         let node_name = mr.read_c_string()?;
         // Skip padding.
         mr.set_position((mr.position() + 3) & !3);
@@ -502,10 +499,7 @@ impl FdtStructure {
 
     /// Returns a devicetree node by path. A unit address may be omitted if the
     /// full path to the node is unambiguous.
-    pub fn find<P>(&self, path: P) -> Result<&FdtNode, Error>
-    where
-        P: AsRef<str>,
-    {
+    pub fn find(&self, path: impl AsRef<str>) -> Result<&FdtNode, Error> {
         let path = path
             .as_ref()
             .strip_prefix('/')
@@ -550,10 +544,7 @@ impl FdtStructure {
 
     /// Returns a devicetree node by path. The match must be exact, thus unit
     /// addresses cannot be omitted.
-    pub fn find_exact<P>(&self, path: P) -> Result<&FdtNode, Error>
-    where
-        P: AsRef<str>,
-    {
+    pub fn find_exact(&self, path: impl AsRef<str>) -> Result<&FdtNode, Error> {
         let path = path
             .as_ref()
             .strip_prefix('/')
