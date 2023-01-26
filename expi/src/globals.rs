@@ -4,7 +4,7 @@ use core::fmt;
 use core::panic::PanicInfo;
 
 use crate::cpu;
-use crate::devicetree::{self, Fdt};
+use crate::fdt::{self, Fdt};
 use crate::mm;
 use crate::print::UartWriter;
 use crate::uart;
@@ -22,8 +22,8 @@ pub enum Error {
     /// Allocator error.
     AllocError(mm::AllocError),
 
-    /// Devicetree error.
-    DevicetreeError(devicetree::Error),
+    /// FDT error.
+    FdtError(fdt::Error),
 }
 
 impl From<uart::Error> for Error {
@@ -38,9 +38,9 @@ impl From<mm::AllocError> for Error {
     }
 }
 
-impl From<devicetree::Error> for Error {
-    fn from(err: devicetree::Error) -> Error {
-        Error::DevicetreeError(err)
+impl From<fdt::Error> for Error {
+    fn from(err: fdt::Error) -> Error {
+        Error::FdtError(err)
     }
 }
 
@@ -49,7 +49,7 @@ impl fmt::Display for Error {
         match self {
             Error::UartError(err) => write!(f, "UART error: {err}"),
             Error::AllocError(err) => write!(f, "allocator error: {err}"),
-            Error::DevicetreeError(err) => write!(f, "devicetree error: {err}"),
+            Error::FdtError(err) => write!(f, "FDT error: {err}"),
         }
     }
 }
@@ -63,7 +63,7 @@ pub struct GlobalResources {
     /// provide safe concurrent access to the UART.
     uart_writer: TicketMutex<Option<UartWriter>>,
 
-    /// Parsed devicetree.
+    /// Parsed FDT.
     fdt: TicketMutex<Option<Fdt>>,
 }
 
@@ -90,7 +90,7 @@ impl GlobalResources {
         &self.uart_writer
     }
 
-    /// Returns the parsed devicetree.
+    /// Returns the parsed FDT.
     pub fn fdt(&self) -> &TicketMutex<Option<Fdt>> {
         &self.fdt
     }
@@ -127,6 +127,6 @@ fn panic(info: &PanicInfo) -> ! {
 pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
     uart::init()?;
     mm::init(dtb_ptr32)?;
-    devicetree::init(dtb_ptr32)?;
+    fdt::init(dtb_ptr32)?;
     Ok(())
 }

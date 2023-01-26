@@ -1,4 +1,4 @@
-//! Devicetree parser.
+//! FDT parser.
 
 use alloc::collections::BTreeMap;
 use alloc::string::{FromUtf8Error, String};
@@ -6,38 +6,40 @@ use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::array::TryFromSliceError;
 use core::fmt;
+use core::num::TryFromIntError;
 
 use crate::globals::GLOBALS;
 use crate::ptr::{self, MemReader};
 
-/// Size of the array used to store the memory reservation block.
-const FDT_MEM_RSVMAP_SIZE: usize = 32;
+pub mod property;
 
-/// Devicetree parsing error.
+/// Size of the array used to store the memory reservation block.
+const MEM_RSVMAP_SIZE: usize = 32;
+
+/// FDT parsing error.
 #[derive(Debug)]
 pub enum Error {
-    /// The devicetree blob shall be located at an 8-byte-aligned address.
+    /// The FDT blob shall be located at an 8-byte-aligned address.
     Unaligned,
 
-    /// The magic field of the Flattened Devicetree header does not match
-    /// "\xd0\x0d\xfe\xed".
+    /// The magic field of the FDT header does not match "\xd0\x0d\xfe\xed".
     InvalidMagic,
 
-    /// Only Devicetree Format version 17 is supported.
-    UnsupportedFdtVersion(u32),
+    /// Only FDT format version 17 is supported.
+    UnsupportedVersion(u32),
 
-    /// A DTSpec boot program should provide a devicetree in a format which is
+    /// A DTSpec boot program should provide an FDT in a format which is
     /// backwards compatible with version 16.
     InvalidLastCompVersion(u32),
 
-    /// The fixed size array used to store the reserved memory regions is full.
-    FullRsvRegions,
+    /// The internal fixed-size array is full.
+    FullInternalArray,
 
-    /// Unknown token found when parsing the devicetree.
+    /// Unknown token found when parsing the FDT.
     UnknownToken(u32),
 
-    /// Malformed devicetree structure.
-    MalformedStructure,
+    /// Malformed FDT structure block.
+    MalformedStructureBlock,
 
     /// Malformed devicetree path.
     MalformedPath,
@@ -67,6 +69,12 @@ impl From<TryFromSliceError> for Error {
     }
 }
 
+impl From<TryFromIntError> for Error {
+    fn from(_err: TryFromIntError) -> Error {
+        Error::ConversionError
+    }
+}
+
 impl From<FromUtf8Error> for Error {
     fn from(_err: FromUtf8Error) -> Error {
         Error::ConversionError
@@ -76,20 +84,20 @@ impl From<FromUtf8Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Error::Unaligned => write!(f, "the devicetree blob is not aligned"),
-            Error::InvalidMagic => write!(f, "invalid FDT magic"),
-            Error::UnsupportedFdtVersion(version) => {
-                write!(f, "unsupported FDT version: {version}")
+            Error::Unaligned => write!(f, "the FDT blob is not aligned"),
+            Error::InvalidMagic => write!(f, "invalid magic"),
+            Error::UnsupportedVersion(version) => {
+                write!(f, "unsupported version: {version}")
             }
             Error::InvalidLastCompVersion(version) => {
                 write!(f, "invalid last compatible version: {version}")
             }
-            Error::FullRsvRegions => {
-                write!(f, "memory reservation internal buffer is full")
+            Error::FullInternalArray => {
+                write!(f, "the internal fixed-size array is full")
             }
             Error::UnknownToken(token) => write!(f, "unknown token: {token}"),
-            Error::MalformedStructure => {
-                write!(f, "malformed devicetree structure")
+            Error::MalformedStructureBlock => {
+                write!(f, "malformed FDT structure block")
             }
             Error::MalformedPath => write!(f, "malformed devicetree path"),
             Error::NotFound => write!(f, "not found"),
@@ -102,14 +110,14 @@ impl fmt::Display for Error {
 
 /// Flattened Devicetree header.
 #[derive(Debug)]
-pub struct FdtHeader {
+pub struct Header {
     /// Pointer to this FDT header.
     ptr: usize,
 
-    /// DTB magic. Must be 0xd00dfeed.
+    /// FDT magic. Must be 0xd00dfeed.
     magic: u32,
 
-    /// Total size in bytes of the devicetree data structure.
+    /// Total size in bytes of the FDT.
     totalsize: u32,
 
     /// Offset in bytes of the structure block.
@@ -121,42 +129,42 @@ pub struct FdtHeader {
     /// Offset in bytes of the memory reservation block.
     off_mem_rsvmap: u32,
 
-    /// Version of the devicetree data structure.
+    /// FDT format version.
     version: u32,
 
-    /// Lowest version of the devicetree data structure with which the version
-    /// used is backwards compatible. A DTSpec boot program should provide a
-    /// devicetree in a format which is backwards compatible with version 16,
-    /// and thus this fields shall always contain 16.
+    /// Lowest FDT format version with which the version used is backwards
+    /// compatible. A DTSpec boot program should provide an FDT in a format
+    /// which is backwards compatible with version 16, and thus this fields
+    /// shall always contain 16.
     last_comp_version: u32,
 
     /// Physical ID of the system's boot CPU.
     boot_cpuid_phys: u32,
 
     /// Length in bytes of the strings block.
-    size_dt_strings: u32,
+    _size_dt_strings: u32,
 
     /// Length in bytes of the structure block.
     size_dt_struct: u32,
 }
 
-impl FdtHeader {
-    /// Parses the devicetree header at `ptr`. This function will return an
-    /// error if the header is not valid (e.g. wrong magic or version).
+impl Header {
+    /// Parses the FDT header at `ptr`. This function will return an error if
+    /// the header is not valid (e.g. wrong magic or version).
     ///
     /// # Safety
     ///
     /// This function accepts an arbitrary memory address, therefore it is
     /// unsafe.
-    unsafe fn parse(ptr: usize) -> Result<FdtHeader, Error> {
-        // The devicetree blob must be 8-byte-aligned to be DTSpec compliant.
+    unsafe fn parse(ptr: usize) -> Result<Header, Error> {
+        // The FDT blob must be 8-byte-aligned to be DTSpec compliant.
         if ptr % 8 != 0 {
             return Err(Error::Unaligned);
         }
 
         let mut mr = MemReader::new(ptr);
 
-        let fdt = FdtHeader {
+        let header = Header {
             ptr,
             magic: mr.read_be::<u32>()?,
             totalsize: mr.read_be::<u32>()?,
@@ -166,29 +174,36 @@ impl FdtHeader {
             version: mr.read_be::<u32>()?,
             last_comp_version: mr.read_be::<u32>()?,
             boot_cpuid_phys: mr.read_be::<u32>()?,
-            size_dt_strings: mr.read_be::<u32>()?,
+            _size_dt_strings: mr.read_be::<u32>()?,
             size_dt_struct: mr.read_be::<u32>()?,
         };
 
         // Check magic.
-        if fdt.magic != 0xd00dfeed {
+        if header.magic != 0xd00dfeed {
             return Err(Error::InvalidMagic);
         }
 
         // Last compatible version must be 16 to be DTSpec compliant.
-        if fdt.last_comp_version != 16 {
-            return Err(Error::InvalidLastCompVersion(fdt.last_comp_version));
+        if header.last_comp_version != 16 {
+            return Err(Error::InvalidLastCompVersion(
+                header.last_comp_version,
+            ));
         }
 
         // This parser only supports version 17.
-        if fdt.version != 17 {
-            return Err(Error::UnsupportedFdtVersion(fdt.version));
+        if header.version != 17 {
+            return Err(Error::UnsupportedVersion(header.version));
         }
 
-        Ok(fdt)
+        Ok(header)
     }
 
-    /// Returns the total size of the Flattened Devicetree.
+    /// Returns the pointer to the FDT header.
+    pub fn ptr(&self) -> usize {
+        self.ptr
+    }
+
+    /// Returns the total size of the FDT.
     pub fn totalsize(&self) -> u32 {
         self.totalsize
     }
@@ -201,7 +216,7 @@ impl FdtHeader {
 
 /// Reserved memory region.
 #[derive(Debug, Default, Copy, Clone)]
-pub struct FdtMemRsvRegion {
+pub struct MemRsvRegion {
     /// Address of the reserved memory region.
     address: u64,
 
@@ -209,7 +224,7 @@ pub struct FdtMemRsvRegion {
     size: u64,
 }
 
-impl FdtMemRsvRegion {
+impl MemRsvRegion {
     /// Returns the address of the reserved memory region.
     pub fn address(&self) -> u64 {
         self.address
@@ -223,25 +238,25 @@ impl FdtMemRsvRegion {
 
 /// Memory reservation block.
 #[derive(Debug)]
-pub struct FdtMemRsvBlock {
+pub struct MemRsvBlock {
     /// Internal fixed size array to store the reserved memory regions.
-    regions: [FdtMemRsvRegion; FDT_MEM_RSVMAP_SIZE],
+    regions: [MemRsvRegion; MEM_RSVMAP_SIZE],
 
     /// Number of elements in the fixed size array that are being used.
     in_use: usize,
 }
 
-impl FdtMemRsvBlock {
+impl MemRsvBlock {
     /// Parses the memory reservation block.
-    fn parse(header: &FdtHeader) -> Result<FdtMemRsvBlock, Error> {
+    fn parse(header: &Header) -> Result<MemRsvBlock, Error> {
         let ptr = header.ptr + (header.off_mem_rsvmap as usize);
         let mut mr = MemReader::new(ptr);
 
-        let mut regions = [FdtMemRsvRegion::default(); FDT_MEM_RSVMAP_SIZE];
+        let mut regions = [MemRsvRegion::default(); MEM_RSVMAP_SIZE];
         let mut in_use = 0;
         loop {
-            if in_use >= FDT_MEM_RSVMAP_SIZE {
-                return Err(Error::FullRsvRegions);
+            if in_use >= MEM_RSVMAP_SIZE {
+                return Err(Error::FullInternalArray);
             }
 
             let address = unsafe { mr.read_be::<u64>()? };
@@ -251,23 +266,23 @@ impl FdtMemRsvBlock {
                 break;
             }
 
-            regions[in_use] = FdtMemRsvRegion { address, size };
+            regions[in_use] = MemRsvRegion { address, size };
 
             in_use += 1;
         }
 
-        Ok(FdtMemRsvBlock { regions, in_use })
+        Ok(MemRsvBlock { regions, in_use })
     }
 
     /// Returns the reserved memory regions.
-    pub fn regions(&self) -> &[FdtMemRsvRegion] {
+    pub fn regions(&self) -> &[MemRsvRegion] {
         &self.regions[..self.in_use]
     }
 }
 
 /// The structure block is composed of a sequence of pieces, each beginning
 /// with one of these tokens.
-enum FdtToken {
+enum Token {
     /// Marks the beginning of a node's representation.
     BeginNode,
 
@@ -275,7 +290,7 @@ enum FdtToken {
     EndNode,
 
     /// Marks the beginning of the representation of one property in the
-    /// devicetree.
+    /// FDT.
     Prop,
 
     /// Ignored.
@@ -288,24 +303,24 @@ enum FdtToken {
     Unknown,
 }
 
-impl From<u32> for FdtToken {
-    fn from(token: u32) -> FdtToken {
+impl From<u32> for Token {
+    fn from(token: u32) -> Token {
         match token {
-            1 => FdtToken::BeginNode,
-            2 => FdtToken::EndNode,
-            3 => FdtToken::Prop,
-            4 => FdtToken::Nop,
-            9 => FdtToken::End,
-            _ => FdtToken::Unknown,
+            1 => Token::BeginNode,
+            2 => Token::EndNode,
+            3 => Token::Prop,
+            4 => Token::Nop,
+            9 => Token::End,
+            _ => Token::Unknown,
         }
     }
 }
 
-/// Represents a property of a devicetree node.
+/// Represents a devicetree property.
 #[derive(Debug)]
-pub struct FdtProperty(Vec<u8>);
+pub struct Property(Vec<u8>);
 
-impl FdtProperty {
+impl Property {
     /// Returns true if the value is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -338,37 +353,37 @@ impl FdtProperty {
     }
 }
 
-/// Represents a node of the devicetree.
+/// Represents a devicetree node.
 #[derive(Debug)]
-pub struct FdtNode {
-    /// Path of the node in the devicetree structure.
+pub struct Node {
+    /// Path of the node in the devicetree.
     path: String,
 
     /// Node's children.
-    children: BTreeMap<String, FdtNode>,
+    children: BTreeMap<String, Node>,
 
     /// Node's properties.
-    properties: BTreeMap<String, FdtProperty>,
+    properties: BTreeMap<String, Property>,
 }
 
-impl FdtNode {
-    /// Returns the path of the node in the devicetree structure.
+impl Node {
+    /// Returns the path of the node.
     pub fn path(&self) -> String {
         self.path.clone()
     }
 
     /// Returns the node's children.
-    pub fn children(&self) -> &BTreeMap<String, FdtNode> {
+    pub fn children(&self) -> &BTreeMap<String, Node> {
         &self.children
     }
 
     /// Returns the node's properties.
-    pub fn properties(&self) -> &BTreeMap<String, FdtProperty> {
+    pub fn properties(&self) -> &BTreeMap<String, Property> {
         &self.properties
     }
 
-    /// Returns an iterator over the nodes of a devicetree structure starting
-    /// at this node.
+    /// Returns an iterator over the nodes of a devicetree starting at this
+    /// node.
     pub fn iter(&self) -> Iter {
         Iter::new(self)
     }
@@ -376,43 +391,43 @@ impl FdtNode {
 
 /// Represents the structure block.
 #[derive(Debug)]
-pub struct FdtStructure(FdtNode);
+pub struct StructureBlock(Node);
 
-impl FdtStructure {
+impl StructureBlock {
     /// Parses the structure block.
-    fn parse(header: &FdtHeader) -> Result<FdtStructure, Error> {
+    fn parse(header: &Header) -> Result<StructureBlock, Error> {
         let ptr = header.ptr + (header.off_dt_struct as usize);
         let mut mr = MemReader::new(ptr);
 
-        // The devicetree structure must begin with a BeginNode token.
+        // The FDT structure block must begin with a BeginNode token.
         let token = unsafe { mr.read_be::<u32>()?.into() };
-        if !matches!(token, FdtToken::BeginNode) {
-            return Err(Error::MalformedStructure);
+        if !matches!(token, Token::BeginNode) {
+            return Err(Error::MalformedStructureBlock);
         }
 
         // Parse nodes.
         let (node_name, node) =
             unsafe { Self::parse_node("", &mut mr, header)? };
 
-        // The devicetree structure must end with an End token.
+        // The FDT structure block must end with an End token.
         let token = unsafe { mr.read_be::<u32>()?.into() };
-        if !matches!(token, FdtToken::End) {
-            return Err(Error::MalformedStructure);
+        if !matches!(token, Token::End) {
+            return Err(Error::MalformedStructureBlock);
         }
 
-        // The size of the parsed devicetree structure must match the one in
+        // The size of the parsed FDT structure block must be consistent with
         // the header.
         let parsed_size = mr.position() - ptr;
         if parsed_size != header.size_dt_struct as usize {
-            return Err(Error::MalformedStructure);
+            return Err(Error::MalformedStructureBlock);
         }
 
         // The name of the root node is an empty string.
         if !node_name.is_empty() {
-            return Err(Error::MalformedStructure);
+            return Err(Error::MalformedStructureBlock);
         }
 
-        Ok(FdtStructure(node))
+        Ok(StructureBlock(node))
     }
 
     /// Parses a devicetree node. Returns the tuple `(name, node)`.
@@ -424,14 +439,14 @@ impl FdtStructure {
     unsafe fn parse_node(
         parent_path: impl AsRef<str>,
         mr: &mut MemReader,
-        header: &FdtHeader,
-    ) -> Result<(String, FdtNode), Error> {
-        let node_name = mr.read_c_string()?;
+        header: &Header,
+    ) -> Result<(String, Node), Error> {
+        let node_name = mr.read_cstr()?;
         // Skip padding.
         mr.set_position((mr.position() + 3) & !3);
 
         let parent_path = parent_path.as_ref().trim_end_matches('/');
-        let mut node = FdtNode {
+        let mut node = Node {
             path: format!("{parent_path}/{node_name}"),
             children: BTreeMap::new(),
             properties: BTreeMap::new(),
@@ -440,19 +455,19 @@ impl FdtStructure {
         loop {
             let token = mr.read_be::<u32>()?;
             match token.into() {
-                FdtToken::BeginNode => {
+                Token::BeginNode => {
                     let (child_name, child) =
                         Self::parse_node(&node.path, mr, header)?;
                     node.children.insert(child_name, child);
                 }
-                FdtToken::EndNode => break,
-                FdtToken::Prop => {
+                Token::EndNode => break,
+                Token::Prop => {
                     let (prop_name, prop) = Self::parse_property(mr, header)?;
                     node.properties.insert(prop_name, prop);
                 }
-                FdtToken::Nop => {}
-                FdtToken::End => return Err(Error::MalformedStructure),
-                FdtToken::Unknown => return Err(Error::UnknownToken(token)),
+                Token::Nop => {}
+                Token::End => return Err(Error::MalformedStructureBlock),
+                Token::Unknown => return Err(Error::UnknownToken(token)),
             }
         }
 
@@ -467,21 +482,13 @@ impl FdtStructure {
     /// an arbitrary memory address.
     unsafe fn parse_property(
         mr: &mut MemReader,
-        header: &FdtHeader,
-    ) -> Result<(String, FdtProperty), Error> {
-        let strings_ptr = header.ptr + (header.off_dt_strings as usize);
-        let strings_size = header.size_dt_strings as usize;
-
+        header: &Header,
+    ) -> Result<(String, Property), Error> {
         let len = mr.read_be::<u32>()? as usize;
         let nameoff = mr.read_be::<u32>()? as usize;
 
-        // Check that the string offset is inside the strings block.
-        let name_ptr = strings_ptr + nameoff;
-        if name_ptr >= strings_ptr + strings_size {
-            return Err(Error::MalformedStructure);
-        }
-
-        let name = ptr::read_c_string(name_ptr)?;
+        let strings_ptr = header.ptr + (header.off_dt_strings as usize);
+        let name = ptr::read_cstr(strings_ptr + nameoff)?;
 
         let mut value = vec![0u8; len];
         mr.read(&mut value);
@@ -489,17 +496,17 @@ impl FdtStructure {
         // Skip padding.
         mr.set_position((mr.position() + 3) & !3);
 
-        Ok((name, FdtProperty(value)))
+        Ok((name, Property(value)))
     }
 
-    /// Returns the root node of the [`FdtStructure`].
-    pub fn root(&self) -> &FdtNode {
+    /// Returns the root node of the [`StructureBlock`].
+    pub fn root(&self) -> &Node {
         &self.0
     }
 
-    /// Returns a devicetree node by path. A unit address may be omitted if the
+    /// Returns a devicetree node by path. Unit addresses may be omitted if the
     /// full path to the node is unambiguous.
-    pub fn find(&self, path: impl AsRef<str>) -> Result<&FdtNode, Error> {
+    pub fn node_matches(&self, path: impl AsRef<str>) -> Result<&Node, Error> {
         let path = path
             .as_ref()
             .strip_prefix('/')
@@ -531,7 +538,7 @@ impl FdtStructure {
                         None
                     }
                 })
-                .collect::<Vec<&FdtNode>>();
+                .collect::<Vec<&Node>>();
 
             node = match matches.len() {
                 0 => return Err(Error::NotFound),
@@ -544,7 +551,7 @@ impl FdtStructure {
 
     /// Returns a devicetree node by path. The match must be exact, thus unit
     /// addresses cannot be omitted.
-    pub fn find_exact(&self, path: impl AsRef<str>) -> Result<&FdtNode, Error> {
+    pub fn node(&self, path: impl AsRef<str>) -> Result<&Node, Error> {
         let path = path
             .as_ref()
             .strip_prefix('/')
@@ -562,28 +569,33 @@ impl FdtStructure {
         Ok(node)
     }
 
-    /// Returns an iterator over the nodes of the devicetree structure.
+    /// Returns an iterator over the nodes of the devicetree.
     pub fn iter(&self) -> Iter {
         self.0.iter()
     }
 }
 
-/// EarlyFdt is a simplified version of the Flattened Devicetree. It is the
-/// result of parsing the minimum necessary fields required during the early
-/// stages of the kernel initialization.
+/// EarlyFdt is a simplified version of [`Fdt`]. It is the result of parsing
+/// the minimum necessary fields required during the early stages of the kernel
+/// initialization.
 ///
-/// It does not require a Global Allocator.
+/// It allows to scan for specific properties without parsing the whole FDT.
+/// So, it does not require a Global Allocator.
 #[derive(Debug)]
 pub struct EarlyFdt {
     /// FDT header.
-    header: FdtHeader,
+    header: Header,
 
     /// Memory reservation block.
-    mem_rsv_block: FdtMemRsvBlock,
+    mem_rsv_block: MemRsvBlock,
 }
 
+/// An offset relative to the beginning of the FDT.
+#[derive(Debug, Copy, Clone)]
+pub struct Offset(usize);
+
 impl EarlyFdt {
-    /// Parses enough of a Flattened Devicetree to produce an [`EarlyFdt`].
+    /// Parses enough of an FDT to produce an [`EarlyFdt`].
     ///
     /// `ptr` must point to the beginning of a valid FDT.
     ///
@@ -592,11 +604,11 @@ impl EarlyFdt {
     /// This function accepts an arbitrary memory address, therefore it is
     /// unsafe.
     pub unsafe fn parse(ptr: usize) -> Result<EarlyFdt, Error> {
-        // Parse devicetree header.
-        let header = FdtHeader::parse(ptr)?;
+        // Parse FDT header.
+        let header = Header::parse(ptr)?;
 
         // Parse reserved memory regions.
-        let mem_rsv_block = FdtMemRsvBlock::parse(&header)?;
+        let mem_rsv_block = MemRsvBlock::parse(&header)?;
 
         Ok(EarlyFdt {
             header,
@@ -605,27 +617,168 @@ impl EarlyFdt {
     }
 
     /// Returns the FDT header.
-    pub fn header(&self) -> &FdtHeader {
+    pub fn header(&self) -> &Header {
         &self.header
     }
 
     /// Returns the memory reservation block.
-    pub fn mem_rsv_block(&self) -> &FdtMemRsvBlock {
+    pub fn mem_rsv_block(&self) -> &MemRsvBlock {
         &self.mem_rsv_block
+    }
+
+    /// Scans the FDT for a given path and returns the offset of the node.
+    ///
+    /// This function requires to parse the FDT until it finds the node. It
+    /// does it in-place without allocating memory, so it is suitable for the
+    /// early stages of boot when the global allocator is not available.
+    pub fn node(&self, path: impl AsRef<str>) -> Result<Offset, Error> {
+        let path = path.as_ref();
+
+        if !path.starts_with('/') {
+            return Err(Error::MalformedPath);
+        }
+
+        let path = if path == "/" { "" } else { path };
+
+        let struct_ptr = self.header.ptr + (self.header.off_dt_struct as usize);
+        let mut mr = MemReader::new(struct_ptr);
+
+        let mut offset = None;
+
+        for node_name in path.split('/') {
+            let mut level = 0;
+
+            offset = loop {
+                let token = unsafe { mr.read_be::<u32>()? };
+                match token.into() {
+                    Token::BeginNode => {
+                        level += 1;
+
+                        let name = unsafe { &*mr.slice_from_cstr() };
+                        // Skip padding.
+                        mr.set_position((mr.position() + 3) & !3);
+
+                        if level != 1 {
+                            // Wrong level.
+                            continue;
+                        }
+
+                        if name != node_name.as_bytes() {
+                            // Wrong name.
+                            continue;
+                        }
+
+                        break Some(mr.position() - self.header.ptr);
+                    }
+                    Token::EndNode => {
+                        level -= 1;
+
+                        if level < 0 {
+                            // The current node ended and we have not found the
+                            // child.
+                            return Err(Error::NotFound);
+                        }
+                    }
+                    Token::Prop => {
+                        let len = unsafe { mr.read_be::<u32>()? as usize };
+
+                        // Skip name offset (4), property value (len) and
+                        // padding.
+                        mr.skip((4 + len + 3) & !3);
+                    }
+                    Token::Nop => {}
+                    Token::End => return Err(Error::NotFound),
+                    Token::Unknown => return Err(Error::UnknownToken(token)),
+                }
+            };
+        }
+
+        Ok(Offset(offset.ok_or(Error::NotFound)?))
+    }
+
+    /// Scans the FDT for a given property under the provided node.
+    ///
+    /// This function requires to parse the FDT until it finds the property.
+    /// It does it in-place without allocating memory, so it is suitable for
+    /// the early stages of boot when the global allocator is not available.
+    pub fn property(
+        &self,
+        node_offset: Offset,
+        property_name: impl AsRef<str>,
+    ) -> Result<*const [u8], Error> {
+        let mut mr = MemReader::new(self.header.ptr + node_offset.0);
+
+        let strings_ptr =
+            self.header.ptr + (self.header.off_dt_strings as usize);
+
+        let mut level = 0;
+
+        loop {
+            let token = unsafe { mr.read_be::<u32>()? };
+            match token.into() {
+                Token::BeginNode => {
+                    level += 1;
+
+                    let _name = unsafe { &*mr.slice_from_cstr() };
+                    // Skip padding.
+                    mr.set_position((mr.position() + 3) & !3);
+                }
+                Token::EndNode => {
+                    level -= 1;
+
+                    if level < 0 {
+                        // The provided node ended and we have not found the
+                        // property.
+                        break Err(Error::NotFound);
+                    }
+                }
+                Token::Prop => {
+                    let len = unsafe { mr.read_be::<u32>()? as usize };
+
+                    if level != 0 {
+                        // This is not the provided node.
+                        mr.skip((4 + len + 3) & !3);
+                        continue;
+                    }
+
+                    let nameoff = unsafe { mr.read_be::<u32>()? as usize };
+
+                    let name = unsafe {
+                        &*ptr::slice_from_cstr(strings_ptr + nameoff)
+                    };
+
+                    if name != property_name.as_ref().as_bytes() {
+                        // Wrong name. So, skip value and padding.
+                        mr.skip((len + 3) & !3);
+                        continue;
+                    }
+
+                    // We found the requested property at the requested
+                    // path.
+                    break Ok(core::ptr::slice_from_raw_parts(
+                        mr.position() as *const u8,
+                        len,
+                    ));
+                }
+                Token::Nop => {}
+                Token::End => break Err(Error::MalformedStructureBlock),
+                Token::Unknown => break Err(Error::UnknownToken(token)),
+            }
+        }
     }
 }
 
 /// Represents a Flattened Devicetree.
 #[derive(Debug)]
 pub struct Fdt {
-    /// Flattened Devicetree header.
-    header: FdtHeader,
+    /// FDT header.
+    header: Header,
 
     /// Memory reservation block.
-    mem_rsv_block: FdtMemRsvBlock,
+    mem_rsv_block: MemRsvBlock,
 
-    /// Devicetree structure.
-    structure: FdtStructure,
+    /// FDT structure block.
+    structure_block: StructureBlock,
 }
 
 impl Fdt {
@@ -638,53 +791,52 @@ impl Fdt {
     /// This function accepts an arbitrary memory address, therefore it is
     /// unsafe.
     pub unsafe fn parse(ptr: usize) -> Result<Fdt, Error> {
-        // Parse devicetree header.
-        let header = FdtHeader::parse(ptr)?;
+        // Parse FDT header.
+        let header = Header::parse(ptr)?;
 
         // Parse reserved memory regions.
-        let mem_rsv_block = FdtMemRsvBlock::parse(&header)?;
+        let mem_rsv_block = MemRsvBlock::parse(&header)?;
 
-        // Parse devicetree structure.
-        let structure = FdtStructure::parse(&header)?;
+        // Parse FDT structure block.
+        let structure_block = StructureBlock::parse(&header)?;
 
         Ok(Fdt {
             header,
             mem_rsv_block,
-            structure,
+            structure_block,
         })
     }
 
     /// Returns the FDT header.
-    pub fn header(&self) -> &FdtHeader {
+    pub fn header(&self) -> &Header {
         &self.header
     }
 
     /// Returns the memory reservation block.
-    pub fn mem_rsv_block(&self) -> &FdtMemRsvBlock {
+    pub fn mem_rsv_block(&self) -> &MemRsvBlock {
         &self.mem_rsv_block
     }
 
-    /// Returns the devicetree structure.
-    pub fn structure(&self) -> &FdtStructure {
-        &self.structure
+    /// Returns the FDT structure block.
+    pub fn structure_block(&self) -> &StructureBlock {
+        &self.structure_block
     }
 }
 
-/// Iterator over the nodes of the subree of an [`FdtNode`].
+/// Iterator over the nodes of the subree of a [`Node`].
 ///
 /// It yields a reference to every visited node.
 pub struct Iter<'a> {
-    /// Contains all the nodes in the subree of a given [`FdtNode`].
-    items: Vec<&'a FdtNode>,
+    /// Contains all the nodes in the subree of a given [`Node`].
+    items: Vec<&'a Node>,
 
     /// Index of the next item that must be returned by the iterator.
     cur: usize,
 }
 
 impl Iter<'_> {
-    /// Creates an iterator that traverses a devicetree structure starting at
-    /// `node`.
-    fn new(node: &FdtNode) -> Iter {
+    /// Creates an iterator that traverses a devicetree starting at `node`.
+    fn new(node: &Node) -> Iter {
         Iter {
             items: Self::traverse(node),
             cur: 0,
@@ -693,7 +845,7 @@ impl Iter<'_> {
 
     /// Traverses the devicetree starting at `node` and returns the visited
     /// nodes.
-    fn traverse(node: &FdtNode) -> Vec<&FdtNode> {
+    fn traverse(node: &Node) -> Vec<&Node> {
         let mut nodes = vec![node];
 
         for child in node.children().values() {
@@ -706,7 +858,7 @@ impl Iter<'_> {
 }
 
 impl<'a> Iterator for Iter<'a> {
-    type Item = &'a FdtNode;
+    type Item = &'a Node;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.items
@@ -719,8 +871,8 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-impl<'a> IntoIterator for &'a FdtStructure {
-    type Item = &'a FdtNode;
+impl<'a> IntoIterator for &'a StructureBlock {
+    type Item = &'a Node;
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -728,8 +880,8 @@ impl<'a> IntoIterator for &'a FdtStructure {
     }
 }
 
-impl<'a> IntoIterator for &'a FdtNode {
-    type Item = &'a FdtNode;
+impl<'a> IntoIterator for &'a Node {
+    type Item = &'a Node;
     type IntoIter = Iter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -737,15 +889,15 @@ impl<'a> IntoIterator for &'a FdtNode {
     }
 }
 
-/// Initializes the global devicetree.
-pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
+/// Initializes the global FDT.
+pub fn init(fdt_ptr32: u32) -> Result<(), Error> {
     let mut fdt_mg = GLOBALS.fdt().lock();
     if fdt_mg.is_some() {
         // Already initialized.
         return Ok(());
     }
 
-    let fdt = unsafe { Fdt::parse(dtb_ptr32 as usize)? };
+    let fdt = unsafe { Fdt::parse(fdt_ptr32 as usize)? };
     *fdt_mg = Some(fdt);
 
     Ok(())

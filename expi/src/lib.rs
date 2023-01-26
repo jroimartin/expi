@@ -47,7 +47,7 @@ extern crate alloc;
 
 pub mod binary;
 pub mod cpu;
-pub mod devicetree;
+pub mod fdt;
 pub mod globals;
 pub mod gpio;
 pub mod intc;

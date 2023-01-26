@@ -3,7 +3,7 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::fmt;
 
-use crate::devicetree;
+use crate::fdt;
 use crate::globals::GLOBALS;
 use crate::mailbox;
 
@@ -42,8 +42,8 @@ pub enum AllocError {
     /// Mailbox error.
     MailboxError(mailbox::Error),
 
-    /// Devicetree error.
-    DevicetreeError(devicetree::Error),
+    /// FDT error.
+    FdtError(fdt::Error),
 
     /// Error while dealing with ranges.
     RangeError(range::Error),
@@ -55,9 +55,9 @@ impl From<mailbox::Error> for AllocError {
     }
 }
 
-impl From<devicetree::Error> for AllocError {
-    fn from(err: devicetree::Error) -> AllocError {
-        AllocError::DevicetreeError(err)
+impl From<fdt::Error> for AllocError {
+    fn from(err: fdt::Error) -> AllocError {
+        AllocError::FdtError(err)
     }
 }
 
@@ -83,8 +83,8 @@ impl fmt::Display for AllocError {
             AllocError::MailboxError(err) => {
                 write!(f, "mailbox error: {err}")
             }
-            AllocError::DevicetreeError(err) => {
-                write!(f, "devicetree parsing error: {err}")
+            AllocError::FdtError(err) => {
+                write!(f, "FDT parsing error: {err}")
             }
             AllocError::RangeError(err) => write!(f, "range error: {err}"),
         }
@@ -222,7 +222,7 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
     free_mem.insert(arm_mem_region)?;
 
     // Parse DTB.
-    let early_fdt = unsafe { devicetree::EarlyFdt::parse(dtb_ptr32 as usize)? };
+    let early_fdt = unsafe { fdt::EarlyFdt::parse(dtb_ptr32 as usize)? };
 
     // Reserve the memory region where the DTB itself is stored.
     let fdt_size = early_fdt.header().totalsize();

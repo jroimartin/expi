@@ -109,10 +109,22 @@ impl MemReader {
     ///
     /// The user is free to point the internal reader position to any memory
     /// location, therefore this function is unsafe.
-    pub unsafe fn read_c_string(&mut self) -> Result<String, Error> {
-        let s = read_c_string(self.pos)?;
+    pub unsafe fn read_cstr(&mut self) -> Result<String, Error> {
+        let s = read_cstr(self.pos)?;
         self.pos += s.len() + 1;
         Ok(s)
+    }
+
+    /// Creates a raw slice from a null-terminated string.
+    ///
+    /// # Safety
+    ///
+    /// The user is free to point the internal reader position to any memory
+    /// location, therefore this function is unsafe.
+    pub unsafe fn slice_from_cstr(&mut self) -> *const [u8] {
+        let s = slice_from_cstr(self.pos);
+        self.pos += (*s).len() + 1;
+        s
     }
 
     /// Sets the memory position of the next read. Setting the internal
@@ -137,7 +149,7 @@ impl MemReader {
 /// # Safety
 ///
 /// This function accepts an arbitrary memory address, therefore it is unsafe.
-pub unsafe fn read_c_string(ptr: usize) -> Result<String, Error> {
+pub unsafe fn read_cstr(ptr: usize) -> Result<String, Error> {
     let mut ptr = ptr as *const u8;
     let mut bytes = Vec::new();
     while *ptr != 0 {
@@ -145,4 +157,18 @@ pub unsafe fn read_c_string(ptr: usize) -> Result<String, Error> {
         ptr = ptr.add(1);
     }
     Ok(String::from_utf8(bytes)?)
+}
+
+/// Creates a raw slice from a pointer to a null-terminated string.
+///
+/// # Safety
+///
+/// This function accepts an arbitrary memory address, therefore it is unsafe.
+pub unsafe fn slice_from_cstr(ptr: usize) -> *const [u8] {
+    let mut cur = ptr as *const u8;
+    while *cur != 0 {
+        cur = cur.add(1);
+    }
+    let len = (cur as usize) - ptr;
+    core::ptr::slice_from_raw_parts(ptr as *const u8, len)
 }
