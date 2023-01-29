@@ -102,8 +102,14 @@ fn fdt_example() -> Result<(), Error> {
 
     println!("---");
 
-    let address_cells = root.properties().get("#address-cells").ok_or(Error::NotFound)?;
-    let size_cells = root.properties().get("#size-cells").ok_or(Error::NotFound)?;
+    let address_cells = root
+        .properties()
+        .get("#address-cells")
+        .ok_or(Error::NotFound)?;
+    let size_cells = root
+        .properties()
+        .get("#size-cells")
+        .ok_or(Error::NotFound)?;
 
     let memory = fdt.structure_block().node("/memory@0")?;
     let memory_reg = memory.properties().get("reg").ok_or(Error::NotFound)?;
