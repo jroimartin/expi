@@ -209,28 +209,20 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
         early_fdt.property(root_off, "#address-cells")?.to_u32()?;
     let size_cells = early_fdt.property(root_off, "#size-cells")?.to_u32()?;
 
-    let mut memory_found = false;
     for node_ptr in &early_fdt {
         if let Ok(device_type) = early_fdt.property(node_ptr, "device_type") {
             if device_type.to_str()? != "memory" {
                 continue;
             }
 
-            memory_found = true;
-
-            let memory_reg = early_fdt.property(node_ptr, "reg")?;
-            let memory_reg =
-                Reg::decode(memory_reg, address_cells, size_cells)?;
-
-            for &(address, size) in memory_reg.entries() {
-                let mem_region =
+            let reg = early_fdt.property(node_ptr, "reg")?;
+            let entries = Reg::decode(reg, address_cells, size_cells);
+            for (address, size) in entries {
+                let region =
                     Range::new(address as u64, (address + size - 1) as u64)?;
-                free_mem.insert(mem_region)?;
+                free_mem.insert(region)?;
             }
         }
-    }
-    if !memory_found {
-        return Err(Error::MissingMemoryNode);
     }
 
     // Reserve the memory region where the DTB itself is stored.

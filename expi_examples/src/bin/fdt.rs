@@ -88,10 +88,10 @@ fn fdt_example() -> Result<(), Error> {
 
     let memory = fdt.structure_block().node("/memory@0")?;
     let memory_reg = memory.property("reg")?;
-    let memory_reg = Reg::decode(memory_reg, address_cells, size_cells)?;
-    let memory_entries = memory_reg.entries();
-
-    println!("/memory@0 entries: {memory_entries:x?}");
+    let reg_entries = Reg::decode(memory_reg, address_cells, size_cells);
+    for entry in reg_entries {
+        println!("/memory@0 entry: {entry:x?}");
+    }
 
     Ok(())
 }
@@ -137,14 +137,11 @@ fn early_fdt_example() -> Result<(), Error> {
     println!("/ #address-cells={address_cells:x} #size-cells={size_cells:x}");
 
     let memory = early_fdt.node("/memory@0")?;
-    let reg = early_fdt.property(memory, "reg")?;
-
-    println!("/memory@0 reg: {reg:x?}");
-
-    let reg = Reg::decode(reg, address_cells, size_cells)?;
-    let reg_entries = reg.entries();
-
-    println!("/memory@0 entries: {reg_entries:x?}");
+    let memory_reg = early_fdt.property(memory, "reg")?;
+    let reg_entries = Reg::decode(memory_reg, address_cells, size_cells);
+    for entry in reg_entries {
+        println!("/memory@0 entry: {entry:x?}");
+    }
 
     Ok(())
 }

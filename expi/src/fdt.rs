@@ -656,7 +656,7 @@ pub struct EarlyFdt {
 
 /// A pointer within the FDT boundaries.
 #[derive(Debug, Copy, Clone)]
-pub struct FdtPointer(usize);
+pub struct FdtPtr(usize);
 
 impl EarlyFdt {
     /// Parses enough of an FDT to produce an [`EarlyFdt`].
@@ -695,7 +695,7 @@ impl EarlyFdt {
     /// This function requires to parse the FDT until it finds the node. It
     /// does it in-place without allocating memory, so it is suitable for the
     /// early stages of boot when the global allocator is not available.
-    pub fn node(&self, path: impl AsRef<str>) -> Result<FdtPointer, Error> {
+    pub fn node(&self, path: impl AsRef<str>) -> Result<FdtPtr, Error> {
         let path = path.as_ref();
 
         if !path.starts_with('/') {
@@ -732,7 +732,7 @@ impl EarlyFdt {
                             continue;
                         }
 
-                        break Some(FdtPointer(mr.position()));
+                        break Some(FdtPtr(mr.position()));
                     }
                     Token::EndNode => {
                         level -= 1;
@@ -767,7 +767,7 @@ impl EarlyFdt {
     /// the early stages of boot when the global allocator is not available.
     pub fn property(
         &self,
-        node_ptr: FdtPointer,
+        node_ptr: FdtPtr,
         property_name: impl AsRef<str>,
     ) -> Result<RefProperty, Error> {
         let mut mr = MemReader::new(node_ptr.0);
@@ -832,7 +832,7 @@ impl EarlyFdt {
     /// Returns an iterator over the nodes of the devicetree.
     pub fn iter(&self) -> EarlyIter {
         let root_ptr = self.header.ptr + (self.header.off_dt_struct as usize);
-        EarlyIter::new(FdtPointer(root_ptr))
+        EarlyIter::new(FdtPtr(root_ptr))
     }
 }
 
@@ -962,18 +962,18 @@ impl<'a> IntoIterator for &'a Node {
 /// It yields a pointer to every visited node.
 pub struct EarlyIter {
     /// Current position.
-    node_ptr: FdtPointer,
+    node_ptr: FdtPtr,
 }
 
 impl EarlyIter {
     /// Creates an iterator that traverses the nodes of an [`EarlyFdt`].
-    fn new(node_ptr: FdtPointer) -> EarlyIter {
+    fn new(node_ptr: FdtPtr) -> EarlyIter {
         EarlyIter { node_ptr }
     }
 }
 
 impl Iterator for EarlyIter {
-    type Item = FdtPointer;
+    type Item = FdtPtr;
 
     fn next(&mut self) -> Option<Self::Item> {
         let mut mr = MemReader::new(self.node_ptr.0);
@@ -986,7 +986,7 @@ impl Iterator for EarlyIter {
                     // Skip padding.
                     mr.set_position((mr.position() + 3) & !3);
 
-                    self.node_ptr = FdtPointer(mr.position());
+                    self.node_ptr = FdtPtr(mr.position());
                     break Some(self.node_ptr);
                 }
                 Token::EndNode => {}
@@ -1006,7 +1006,7 @@ impl Iterator for EarlyIter {
 }
 
 impl IntoIterator for &EarlyFdt {
-    type Item = FdtPointer;
+    type Item = FdtPtr;
     type IntoIter = EarlyIter;
 
     fn into_iter(self) -> Self::IntoIter {

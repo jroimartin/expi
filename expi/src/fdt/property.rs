@@ -4,59 +4,57 @@ use core::convert::TryInto;
 
 use crate::fdt::Error;
 
-/// Size of the array used to store the reg property entries.
-const REG_ENTRIES_SIZE: usize = 32;
-
-/// The devicetree `reg` property.
+/// Iterator over the entries of a `reg` property.
+///
+/// It yields a tupe with the format `(address, size)` for every entry.
 #[derive(Debug)]
-pub struct Reg {
-    /// The entries of the `reg` property.
-    entries: [(usize, usize); REG_ENTRIES_SIZE],
+pub struct Reg<T> {
+    /// Number of `<u32>` cells to represent the address in the reg property.
+    address_cells: usize,
 
-    /// The number of entries of the fixed-size array that are in use.
-    in_use: usize,
+    /// Number of `<u32>` cells to represent the size in the reg property.
+    size_cells: usize,
+
+    /// `reg` bytes.
+    bytes: T,
+
+    /// Index of the next entry.
+    idx: usize,
 }
 
-impl Reg {
-    /// Decodes a devicetree `reg` property.
-    pub fn decode(
-        reg: impl AsRef<[u8]>,
-        address_cells: u32,
-        size_cells: u32,
-    ) -> Result<Reg, Error> {
-        let reg = reg.as_ref();
-        let address_cells = address_cells as usize;
-        let size_cells = size_cells as usize;
+impl<T> Reg<T> {
+    /// Creates a [`Reg`] iterator.
+    pub fn decode(reg: T, address_cells: u32, size_cells: u32) -> Reg<T> {
+        Reg {
+            address_cells: address_cells as usize,
+            size_cells: size_cells as usize,
+            bytes: reg,
+            idx: 0,
+        }
+    }
+}
 
-        let mut entries = [(0, 0); REG_ENTRIES_SIZE];
-        let mut in_use = 0;
+impl<T: AsRef<[u8]>> Iterator for Reg<T> {
+    type Item = (usize, usize);
 
-        loop {
-            let address_idx = in_use * (address_cells + size_cells) * 4;
-            let size_idx = address_idx + address_cells * 4;
-            let end_idx = size_idx + size_cells * 4;
+    fn next(&mut self) -> Option<Self::Item> {
+        let address_idx = self.idx;
+        let size_idx = address_idx + self.address_cells * 4;
+        let end_idx = size_idx + self.size_cells * 4;
 
-            if end_idx > reg.len() {
-                break;
-            }
+        let bytes = self.bytes.as_ref();
 
-            if in_use >= REG_ENTRIES_SIZE {
-                return Err(Error::FullInternalArray);
-            }
-
-            let address = usize_from_be_bytes(&reg[address_idx..size_idx])?;
-            let size = usize_from_be_bytes(&reg[size_idx..end_idx])?;
-            entries[in_use] = (address, size);
-            in_use += 1;
+        if end_idx > bytes.len() {
+            return None;
         }
 
-        Ok(Reg { entries, in_use })
-    }
+        let address =
+            usize_from_be_bytes(&bytes[address_idx..size_idx]).ok()?;
+        let size = usize_from_be_bytes(&bytes[size_idx..end_idx]).ok()?;
 
-    /// Returns the entries of the `reg` property. An entry has the format
-    /// `(address, size)`.
-    pub fn entries(&self) -> &[(usize, usize)] {
-        &self.entries[..self.in_use]
+        self.idx = end_idx;
+
+        Some((address, size))
     }
 }
 
