@@ -360,6 +360,12 @@ impl Property {
     }
 }
 
+impl AsRef<[u8]> for Property {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 /// Represents a devicetree node.
 #[derive(Debug)]
 pub struct Node {
@@ -703,7 +709,7 @@ impl EarlyFdt {
         node_ptr.ok_or(Error::NotFound)
     }
 
-    /// Scans the FDT for a given property under provided node.
+    /// Scans the FDT for a given property under the provided node.
     ///
     /// This function requires to parse the FDT until it finds the property.
     /// It does it in-place without allocating memory, so it is suitable for

@@ -20,13 +20,16 @@ pub struct Reg {
 impl Reg {
     /// Decodes a devicetree `reg` property.
     pub fn decode(
-        reg: &[u8],
-        address_cells: &[u8],
-        size_cells: &[u8],
+        reg: impl AsRef<[u8]>,
+        address_cells: impl AsRef<[u8]>,
+        size_cells: impl AsRef<[u8]>,
     ) -> Result<Reg, Error> {
         let address_cells =
-            u32::from_be_bytes(address_cells.try_into()?) as usize;
-        let size_cells = u32::from_be_bytes(size_cells.try_into()?) as usize;
+            u32::from_be_bytes(address_cells.as_ref().try_into()?) as usize;
+        let size_cells =
+            u32::from_be_bytes(size_cells.as_ref().try_into()?) as usize;
+
+        let reg = reg.as_ref();
 
         let mut entries = [(0, 0); REG_SIZE];
         let mut in_use = 0;
@@ -44,8 +47,8 @@ impl Reg {
                 return Err(Error::FullInternalArray);
             }
 
-            let address = usize_from_bytes(&reg[address_idx..size_idx])?;
-            let size = usize_from_bytes(&reg[size_idx..end_idx])?;
+            let address = usize_from_be_bytes(&reg[address_idx..size_idx])?;
+            let size = usize_from_be_bytes(&reg[size_idx..end_idx])?;
             entries[in_use] = (address, size);
             in_use += 1;
         }
@@ -62,7 +65,7 @@ impl Reg {
 
 /// Creates a native endian integer from its representation as a byte array in
 /// big endian and converts it to `usize`.
-fn usize_from_bytes(bytes: impl AsRef<[u8]>) -> Result<usize, Error> {
+fn usize_from_be_bytes(bytes: impl AsRef<[u8]>) -> Result<usize, Error> {
     let bytes = bytes.as_ref();
 
     match bytes.len() {

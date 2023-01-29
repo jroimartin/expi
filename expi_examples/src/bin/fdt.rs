@@ -4,6 +4,7 @@
 #![no_std]
 #![no_main]
 
+use expi::fdt;
 use expi::fdt::property::Reg;
 use expi::fdt::EarlyFdt;
 use expi::globals::GLOBALS;
@@ -11,17 +12,113 @@ use expi::mm;
 use expi::println;
 use expi_macros::entrypoint;
 
+/// FDT example error.
+#[derive(Debug)]
+enum Error {
+    /// Uninit global.
+    UninitGlobal,
+
+    /// The requested entity could not be found.
+    NotFound,
+
+    /// FDT error.
+    Fdt(fdt::Error),
+
+    /// Memory management error.
+    Mm(mm::Error),
+}
+
+impl From<fdt::Error> for Error {
+    fn from(err: fdt::Error) -> Error {
+        Error::Fdt(err)
+    }
+}
+
+impl From<mm::Error> for Error {
+    fn from(err: mm::Error) -> Error {
+        Error::Mm(err)
+    }
+}
+
 /// Kernel main function.
 #[entrypoint]
 fn kernel_main() {
     println!("expi");
 
+    println!("\n--- Fdt ---\n");
+    fdt_example().expect("error running Fdt example");
+
+    println!("\n--- Fdt iter ---\n");
+    fdt_iter_example().expect("error running Fdt iter example");
+
+    println!("\n--- EarlyFdt ---\n");
+    early_fdt_example().expect("error running EarlyFdt example");
+
+    println!("\n--- EarlyFdt iter ---\n");
+    early_fdt_iter_example().expect("error running EarlyFdt iter example");
+
+    println!("\n--- Free memory ---\n");
+    show_free_memory().expect("error getting free memory");
+
+    println!("done");
+}
+
+/// Fdt example.
+fn fdt_example() -> Result<(), Error> {
     let fdt_mg = GLOBALS.fdt().lock();
-    let fdt = fdt_mg.as_ref().unwrap();
+    let fdt = fdt_mg.as_ref().ok_or(Error::UninitGlobal)?;
 
-    // Iterator.
+    let root = fdt.structure_block().node("/")?;
+    let model = root
+        .properties()
+        .get("model")
+        .ok_or(Error::NotFound)?
+        .to_string()?;
+    println!("/ model: {model}");
 
-    println!("\n--- ITERATOR ---\n");
+    let arm_pmu = fdt.structure_block().node("/arm-pmu")?;
+    let compatible = arm_pmu
+        .properties()
+        .get("compatible")
+        .ok_or(Error::NotFound)?
+        .to_stringlist()?;
+    println!("/arm-pmu compatible: {compatible:?}");
+
+    let cpu = fdt.structure_block().node("/cpus/cpu@0")?;
+    let cpu_release_addr = cpu
+        .properties()
+        .get("cpu-release-addr")
+        .ok_or(Error::NotFound)?
+        .to_u64()?;
+    println!("/cpus/cpu@0 cpu-release-addr: {cpu_release_addr:#x}");
+
+    let local_intc = fdt.structure_block().node_matches("/soc/local_intc")?;
+    let interrupt_cells = local_intc
+        .properties()
+        .get("#interrupt-cells")
+        .ok_or(Error::NotFound)?
+        .to_u32()?;
+    println!("/soc/local_intc #interrupt-cells: {interrupt_cells}");
+
+    println!("---");
+
+    let address_cells = root.properties().get("#address-cells").ok_or(Error::NotFound)?;
+    let size_cells = root.properties().get("#size-cells").ok_or(Error::NotFound)?;
+
+    let memory = fdt.structure_block().node("/memory@0")?;
+    let memory_reg = memory.properties().get("reg").ok_or(Error::NotFound)?;
+    let memory_reg = Reg::decode(memory_reg, address_cells, size_cells)?;
+    let memory_entries = memory_reg.entries();
+
+    println!("/memory@0 entries: {memory_entries:x?}");
+
+    Ok(())
+}
+
+/// Fdt iter example.
+fn fdt_iter_example() -> Result<(), Error> {
+    let fdt_mg = GLOBALS.fdt().lock();
+    let fdt = fdt_mg.as_ref().ok_or(Error::UninitGlobal)?;
 
     for node in fdt.structure_block().iter().take(5) {
         println!(
@@ -31,11 +128,9 @@ fn kernel_main() {
         );
     }
 
-    // Find and Iterator.
+    println!("---");
 
-    println!("\n--- FIND + ITERATOR ---\n");
-
-    let cpus = fdt.structure_block().node("/cpus").unwrap();
+    let cpus = fdt.structure_block().node("/cpus")?;
     for node in cpus {
         println!(
             "path={} properties={:x?}",
@@ -44,99 +139,60 @@ fn kernel_main() {
         );
     }
 
-    // Find.
+    Ok(())
+}
 
-    println!("\n--- FIND ---\n");
+/// EarlyFdt example.
+fn early_fdt_example() -> Result<(), Error> {
+    let fdt_mg = GLOBALS.fdt().lock();
+    let fdt = fdt_mg.as_ref().ok_or(Error::UninitGlobal)?;
 
-    let node = fdt.structure_block().node("/").unwrap();
-    let prop = node.properties().get("model").unwrap().to_string().unwrap();
-    println!("/ model: {prop}");
+    let early_fdt = unsafe { EarlyFdt::parse(fdt.header().ptr())? };
 
-    let node = fdt.structure_block().node("/arm-pmu").unwrap();
-    let prop = node
-        .properties()
-        .get("compatible")
-        .unwrap()
-        .to_stringlist()
-        .unwrap();
-    println!("/arm-pmu compatible: {prop:?}");
-
-    let node = fdt
-        .structure_block()
-        .node("/soc/local_intc@40000000")
-        .unwrap();
-    let prop = node
-        .properties()
-        .get("#interrupt-cells")
-        .unwrap()
-        .to_u32()
-        .unwrap();
-    println!("/soc/local_intc@40000000 #interrupt-cells: {prop}");
-
-    let node = fdt
-        .structure_block()
-        .node_matches("/soc/local_intc")
-        .unwrap();
-    let prop = node
-        .properties()
-        .get("#interrupt-cells")
-        .unwrap()
-        .to_u32()
-        .unwrap();
-    println!("/soc/local_intc #interrupt-cells: {prop}");
-
-    let node = fdt.structure_block().node("/cpus/cpu@0").unwrap();
-    let prop = node
-        .properties()
-        .get("cpu-release-addr")
-        .unwrap()
-        .to_u64()
-        .unwrap();
-    println!("/cpus/cpu@0 cpu-release-addr: {prop:#x}");
-
-    // EarlyFdt.
-
-    println!("\n--- EARLYFDT ---\n");
-
-    let early_fdt = unsafe { EarlyFdt::parse(fdt.header().ptr()).unwrap() };
-
-    let node = early_fdt.node("/").unwrap();
-    let address_cells = early_fdt.property(node, "#address-cells").unwrap();
-    let size_cells = early_fdt.property(node, "#size-cells").unwrap();
+    let root = early_fdt.node("/")?;
+    let address_cells = early_fdt.property(root, "#address-cells")?;
+    let size_cells = early_fdt.property(root, "#size-cells")?;
 
     println!("/ #address-cells={address_cells:x?} #size-cells={size_cells:x?}");
 
-    let node = early_fdt.node("/memory@0").unwrap();
-    let reg = early_fdt.property(node, "reg").unwrap();
+    let memory = early_fdt.node("/memory@0")?;
+    let reg = early_fdt.property(memory, "reg")?;
 
     println!("/memory@0 reg: {reg:x?}");
 
-    let reg = Reg::decode(reg, address_cells, size_cells).unwrap();
+    let reg = Reg::decode(reg, address_cells, size_cells)?;
     let reg_entries = reg.entries();
 
     println!("/memory@0 entries: {reg_entries:x?}");
 
-    // EarlyFdt and Iterator.
+    Ok(())
+}
 
-    println!("\n--- EARLYFDT + ITERATOR ---\n");
+/// EarlyFdt iter example.
+fn early_fdt_iter_example() -> Result<(), Error> {
+    let fdt_mg = GLOBALS.fdt().lock();
+    let fdt = fdt_mg.as_ref().ok_or(Error::UninitGlobal)?;
+
+    let early_fdt = unsafe { EarlyFdt::parse(fdt.header().ptr())? };
 
     for node_ptr in early_fdt.iter().take(5) {
         println!("{:x?}", node_ptr);
     }
 
-    // Free memory.
+    Ok(())
+}
 
-    println!("\n--- FREE MEMORY ---\n");
-
-    let free_mem_size = mm::free_memory_size().unwrap() as f32;
+/// Shows free memory.
+fn show_free_memory() -> Result<(), Error> {
+    let free_mem_size = mm::free_memory_size()? as f32;
     println!("free memory: {} MiB", free_mem_size / 1024.0 / 1024.0);
 
     let free_memory_mg = GLOBALS.free_memory().lock();
-    let free_memory = free_memory_mg.as_ref().unwrap();
+    let free_memory = free_memory_mg.as_ref().ok_or(Error::UninitGlobal)?;
 
     let free_memory_ranges = free_memory.ranges();
     println!("free memory: {:#x?}", free_memory_ranges);
     println!("# ranges: {}", free_memory_ranges.len());
 
-    println!("done");
+    Ok(())
 }
