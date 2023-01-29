@@ -348,22 +348,22 @@ impl Property {
         self.0.is_empty()
     }
 
-    /// Returns the value as [`u32`].
+    /// Returns the value as `u32`.
     pub fn to_u32(&self) -> Result<u32, Error> {
         Ok(u32::from_be_bytes(self.0.as_slice().try_into()?))
     }
 
-    /// Returns the value as [`u64`].
+    /// Returns the value as `u64`.
     pub fn to_u64(&self) -> Result<u64, Error> {
         Ok(u64::from_be_bytes(self.0.as_slice().try_into()?))
     }
 
-    /// Returns the value as [`String`].
+    /// Returns the value as `String`.
     pub fn to_string(&self) -> Result<String, Error> {
         Ok(CString::from_vec_with_nul(self.0.clone())?.into_string()?)
     }
 
-    /// Returns the value as [`String`] list.
+    /// Returns the value as `String` list.
     pub fn to_stringlist(&self) -> Result<Vec<String>, Error> {
         let stringlist = self
             .0
@@ -617,12 +617,12 @@ impl RefProperty<'_> {
         self.0.is_empty()
     }
 
-    /// Returns the value as [`u32`].
+    /// Returns the value as `u32`.
     pub fn to_u32(&self) -> Result<u32, Error> {
         Ok(u32::from_be_bytes(self.0.try_into()?))
     }
 
-    /// Returns the value as [`u64`].
+    /// Returns the value as `u64`.
     pub fn to_u64(&self) -> Result<u64, Error> {
         Ok(u64::from_be_bytes(self.0.try_into()?))
     }
