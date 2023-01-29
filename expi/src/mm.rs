@@ -4,8 +4,8 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::fmt;
 
 use crate::fdt;
+use crate::fdt::property::Reg;
 use crate::globals::GLOBALS;
-use crate::mailbox;
 
 use range::{Range, RangeSet};
 
@@ -39,20 +39,11 @@ pub enum AllocError {
     /// An arithmetic operation caused an integer overflow.
     IntegerOverflow,
 
-    /// Mailbox error.
-    MailboxError(mailbox::Error),
-
     /// FDT error.
     FdtError(fdt::Error),
 
     /// Error while dealing with ranges.
     RangeError(range::Error),
-}
-
-impl From<mailbox::Error> for AllocError {
-    fn from(err: mailbox::Error) -> AllocError {
-        AllocError::MailboxError(err)
-    }
 }
 
 impl From<fdt::Error> for AllocError {
@@ -80,9 +71,6 @@ impl fmt::Display for AllocError {
             AllocError::NullPtr => write!(f, "pointer is null"),
             AllocError::ZeroSize => write!(f, "size is zero"),
             AllocError::IntegerOverflow => write!(f, "integer overflow"),
-            AllocError::MailboxError(err) => {
-                write!(f, "mailbox error: {err}")
-            }
             AllocError::FdtError(err) => {
                 write!(f, "FDT parsing error: {err}")
             }
@@ -213,16 +201,24 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
 
     let mut free_mem = RangeSet::new();
 
-    // Add ARM memory to the free memory RangeSet.
-    let (arm_mem_base, arm_mem_size) = mailbox::get_arm_memory()?;
-    let arm_mem_region = Range::new(
-        arm_mem_base as u64,
-        (arm_mem_base + arm_mem_size - 1) as u64,
-    )?;
-    free_mem.insert(arm_mem_region)?;
-
     // Parse DTB.
     let early_fdt = unsafe { fdt::EarlyFdt::parse(dtb_ptr32 as usize)? };
+
+    // Add ARM memory to the free memory RangeSet.
+    let root_off = early_fdt.node("/").unwrap();
+    let address_cells =
+        unsafe { &*early_fdt.property(root_off, "#address-cells")? };
+    let size_cells = unsafe { &*early_fdt.property(root_off, "#size-cells")? };
+
+    let memory_off = early_fdt.node("/memory@0")?;
+    let memory_reg = unsafe { &*early_fdt.property(memory_off, "reg")? };
+    let memory_reg = Reg::decode(memory_reg, address_cells, size_cells)?;
+
+    for &(address, size) in memory_reg.entries() {
+        let mem_region =
+            Range::new(address as u64, (address + size - 1) as u64)?;
+        free_mem.insert(mem_region)?;
+    }
 
     // Reserve the memory region where the DTB itself is stored.
     let fdt_size = early_fdt.header().totalsize();
