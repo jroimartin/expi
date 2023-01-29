@@ -18,9 +18,6 @@ enum Error {
     /// Uninit global.
     UninitGlobal,
 
-    /// The requested entity could not be found.
-    NotFound,
-
     /// FDT error.
     Fdt(fdt::Error),
 
@@ -69,50 +66,28 @@ fn fdt_example() -> Result<(), Error> {
     let fdt = fdt_mg.as_ref().ok_or(Error::UninitGlobal)?;
 
     let root = fdt.structure_block().node("/")?;
-    let model = root
-        .properties()
-        .get("model")
-        .ok_or(Error::NotFound)?
-        .to_string()?;
+    let model = root.property("model")?.to_string()?;
     println!("/ model: {model}");
 
     let arm_pmu = fdt.structure_block().node("/arm-pmu")?;
-    let compatible = arm_pmu
-        .properties()
-        .get("compatible")
-        .ok_or(Error::NotFound)?
-        .to_stringlist()?;
+    let compatible = arm_pmu.property("compatible")?.to_stringlist()?;
     println!("/arm-pmu compatible: {compatible:?}");
 
     let cpu = fdt.structure_block().node("/cpus/cpu@0")?;
-    let cpu_release_addr = cpu
-        .properties()
-        .get("cpu-release-addr")
-        .ok_or(Error::NotFound)?
-        .to_u64()?;
+    let cpu_release_addr = cpu.property("cpu-release-addr")?.to_u64()?;
     println!("/cpus/cpu@0 cpu-release-addr: {cpu_release_addr:#x}");
 
     let local_intc = fdt.structure_block().node_matches("/soc/local_intc")?;
-    let interrupt_cells = local_intc
-        .properties()
-        .get("#interrupt-cells")
-        .ok_or(Error::NotFound)?
-        .to_u32()?;
+    let interrupt_cells = local_intc.property("#interrupt-cells")?.to_u32()?;
     println!("/soc/local_intc #interrupt-cells: {interrupt_cells}");
 
     println!("---");
 
-    let address_cells = root
-        .properties()
-        .get("#address-cells")
-        .ok_or(Error::NotFound)?;
-    let size_cells = root
-        .properties()
-        .get("#size-cells")
-        .ok_or(Error::NotFound)?;
+    let address_cells = root.property("#address-cells")?;
+    let size_cells = root.property("#size-cells")?;
 
     let memory = fdt.structure_block().node("/memory@0")?;
-    let memory_reg = memory.properties().get("reg").ok_or(Error::NotFound)?;
+    let memory_reg = memory.property("reg")?;
     let memory_reg = Reg::decode(memory_reg, address_cells, size_cells)?;
     let memory_entries = memory_reg.entries();
 

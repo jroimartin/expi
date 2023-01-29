@@ -395,6 +395,11 @@ impl Node {
         &self.properties
     }
 
+    /// Returns a property of the node.
+    pub fn property(&self, name: impl AsRef<str>) -> Result<&Property, Error> {
+        self.properties().get(name.as_ref()).ok_or(Error::NotFound)
+    }
+
     /// Returns an iterator over the nodes of a devicetree starting at this
     /// node.
     pub fn iter(&self) -> Iter {
