@@ -18,9 +18,12 @@ const KERNEL_BASE: u64 = 0x80000;
 /// kernel when the global allocator is initialized.
 const KERNEL_MAX_SIZE: u64 = 16 * 1024 * 1024;
 
-/// Allocator error.
+/// Memory management error.
 #[derive(Debug)]
-pub enum AllocError {
+pub enum Error {
+    /// Could not find a memory node in the devicetree.
+    MissingMemoryNode,
+
     /// The global allocator has not been initialized.
     Uninitialized,
 
@@ -46,35 +49,38 @@ pub enum AllocError {
     RangeError(range::Error),
 }
 
-impl From<fdt::Error> for AllocError {
-    fn from(err: fdt::Error) -> AllocError {
-        AllocError::FdtError(err)
+impl From<fdt::Error> for Error {
+    fn from(err: fdt::Error) -> Error {
+        Error::FdtError(err)
     }
 }
 
-impl From<range::Error> for AllocError {
-    fn from(err: range::Error) -> AllocError {
-        AllocError::RangeError(err)
+impl From<range::Error> for Error {
+    fn from(err: range::Error) -> Error {
+        Error::RangeError(err)
     }
 }
 
-impl fmt::Display for AllocError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            AllocError::Uninitialized => {
+            Error::MissingMemoryNode => {
+                write!(f, "could not find a memory node in the devicetree")
+            }
+            Error::Uninitialized => {
                 write!(f, "global allocator is not initialized")
             }
-            AllocError::InvalidAlign => write!(f, "invalid alignment"),
-            AllocError::NotSatisfiable => {
+            Error::InvalidAlign => write!(f, "invalid alignment"),
+            Error::NotSatisfiable => {
                 write!(f, "could not find a suitable memory region")
             }
-            AllocError::NullPtr => write!(f, "pointer is null"),
-            AllocError::ZeroSize => write!(f, "size is zero"),
-            AllocError::IntegerOverflow => write!(f, "integer overflow"),
-            AllocError::FdtError(err) => {
+            Error::NullPtr => write!(f, "pointer is null"),
+            Error::ZeroSize => write!(f, "size is zero"),
+            Error::IntegerOverflow => write!(f, "integer overflow"),
+            Error::FdtError(err) => {
                 write!(f, "FDT parsing error: {err}")
             }
-            AllocError::RangeError(err) => write!(f, "range error: {err}"),
+            Error::RangeError(err) => write!(f, "range error: {err}"),
         }
     }
 }
@@ -84,17 +90,17 @@ pub struct GlobalAllocator;
 
 impl GlobalAllocator {
     /// Tries to allocate memory.
-    fn try_alloc(&self, layout: Layout) -> Result<*mut u8, AllocError> {
+    fn try_alloc(&self, layout: Layout) -> Result<*mut u8, Error> {
         if layout.size() == 0 {
             return Ok(core::ptr::null_mut());
         }
 
         if layout.align().count_ones() != 1 {
-            return Err(AllocError::InvalidAlign);
+            return Err(Error::InvalidAlign);
         }
 
         let mut free_mem_mg = GLOBALS.free_memory().lock();
-        let free_mem = free_mem_mg.as_mut().ok_or(AllocError::Uninitialized)?;
+        let free_mem = free_mem_mg.as_mut().ok_or(Error::Uninitialized)?;
 
         let size = alloc_size(&layout);
         let align = layout.align() as u64;
@@ -104,50 +110,43 @@ impl GlobalAllocator {
             let start = region
                 .start()
                 .checked_add(align - 1)
-                .ok_or(AllocError::IntegerOverflow)?
+                .ok_or(Error::IntegerOverflow)?
                 & !(align - 1);
-            let end = start
-                .checked_add(size - 1)
-                .ok_or(AllocError::IntegerOverflow)?;
+            let end =
+                start.checked_add(size - 1).ok_or(Error::IntegerOverflow)?;
             if end <= region.end() {
                 reserved = Some(Range::new(start, end)?);
                 break;
             }
         }
 
-        let reserved = reserved.ok_or(AllocError::NotSatisfiable)?;
+        let reserved = reserved.ok_or(Error::NotSatisfiable)?;
         free_mem.remove(reserved)?;
 
         Ok(reserved.start() as *mut u8)
     }
 
     /// Tries to deallocate memory.
-    fn try_dealloc(
-        &self,
-        ptr: *mut u8,
-        layout: Layout,
-    ) -> Result<(), AllocError> {
+    fn try_dealloc(&self, ptr: *mut u8, layout: Layout) -> Result<(), Error> {
         if ptr.is_null() {
-            return Err(AllocError::NullPtr);
+            return Err(Error::NullPtr);
         }
 
         if layout.size() == 0 {
-            return Err(AllocError::ZeroSize);
+            return Err(Error::ZeroSize);
         }
 
         if layout.align().count_ones() != 1 {
-            return Err(AllocError::InvalidAlign);
+            return Err(Error::InvalidAlign);
         }
 
         let mut free_mem_mg = GLOBALS.free_memory().lock();
-        let free_mem = free_mem_mg.as_mut().ok_or(AllocError::Uninitialized)?;
+        let free_mem = free_mem_mg.as_mut().ok_or(Error::Uninitialized)?;
 
         let size = alloc_size(&layout);
 
         let start = ptr as u64;
-        let end = start
-            .checked_add(size - 1)
-            .ok_or(AllocError::IntegerOverflow)?;
+        let end = start.checked_add(size - 1).ok_or(Error::IntegerOverflow)?;
         let reserved = Range::new(start, end)?;
 
         free_mem.insert(reserved)?;
@@ -192,7 +191,7 @@ unsafe impl GlobalAlloc for GlobalAllocator {
 }
 
 /// Initializes the global allocator with the list of free memory regions.
-pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
+pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
     let mut free_mem_mg = GLOBALS.free_memory().lock();
     if free_mem_mg.is_some() {
         // Already initialized.
@@ -209,14 +208,28 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
     let address_cells = early_fdt.property(root_off, "#address-cells")?;
     let size_cells = early_fdt.property(root_off, "#size-cells")?;
 
-    let memory_off = early_fdt.node("/memory@0")?;
-    let memory_reg = early_fdt.property(memory_off, "reg")?;
-    let memory_reg = Reg::decode(memory_reg, address_cells, size_cells)?;
+    let mut memory_found = false;
+    for node_ptr in &early_fdt {
+        if let Ok(device_type) = early_fdt.property(node_ptr, "device_type") {
+            if device_type != b"memory\x00" {
+                continue;
+            }
 
-    for &(address, size) in memory_reg.entries() {
-        let mem_region =
-            Range::new(address as u64, (address + size - 1) as u64)?;
-        free_mem.insert(mem_region)?;
+            memory_found = true;
+
+            let memory_reg = early_fdt.property(node_ptr, "reg")?;
+            let memory_reg =
+                Reg::decode(memory_reg, address_cells, size_cells)?;
+
+            for &(address, size) in memory_reg.entries() {
+                let mem_region =
+                    Range::new(address as u64, (address + size - 1) as u64)?;
+                free_mem.insert(mem_region)?;
+            }
+        }
+    }
+    if !memory_found {
+        return Err(Error::MissingMemoryNode);
     }
 
     // Reserve the memory region where the DTB itself is stored.
@@ -247,8 +260,8 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
 }
 
 /// Returns the size in bytes of the memory that is currently free.
-pub fn free_memory_size() -> Result<u64, AllocError> {
+pub fn free_memory_size() -> Result<u64, Error> {
     let free_mem_mg = GLOBALS.free_memory().lock();
-    let free_mem = free_mem_mg.as_ref().ok_or(AllocError::Uninitialized)?;
+    let free_mem = free_mem_mg.as_ref().ok_or(Error::Uninitialized)?;
     Ok(free_mem.size())
 }

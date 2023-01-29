@@ -23,7 +23,7 @@ fn kernel_main() {
 
     println!("\n--- ITERATOR ---\n");
 
-    for node in fdt.structure_block() {
+    for node in fdt.structure_block().iter().take(5) {
         println!(
             "path={} properties={:x?}",
             node.path(),
@@ -94,9 +94,9 @@ fn kernel_main() {
         .unwrap();
     println!("/cpus/cpu@0 cpu-release-addr: {prop:#x}");
 
-    // Scan.
+    // EarlyFdt.
 
-    println!("\n--- SCAN ---\n");
+    println!("\n--- EARLYFDT ---\n");
 
     let early_fdt = unsafe { EarlyFdt::parse(fdt.header().ptr()).unwrap() };
 
@@ -115,6 +115,14 @@ fn kernel_main() {
     let reg_entries = reg.entries();
 
     println!("/memory@0 entries: {reg_entries:x?}");
+
+    // EarlyFdt and Iterator.
+
+    println!("\n--- EARLYFDT + ITERATOR ---\n");
+
+    for node_ptr in early_fdt.iter().take(5) {
+        println!("{:x?}", node_ptr);
+    }
 
     // Free memory.
 

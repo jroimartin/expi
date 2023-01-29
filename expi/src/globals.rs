@@ -19,8 +19,8 @@ pub enum Error {
     /// UART error.
     UartError(uart::Error),
 
-    /// Allocator error.
-    AllocError(mm::AllocError),
+    /// Memory management error.
+    MmError(mm::Error),
 
     /// FDT error.
     FdtError(fdt::Error),
@@ -32,9 +32,9 @@ impl From<uart::Error> for Error {
     }
 }
 
-impl From<mm::AllocError> for Error {
-    fn from(err: mm::AllocError) -> Error {
-        Error::AllocError(err)
+impl From<mm::Error> for Error {
+    fn from(err: mm::Error) -> Error {
+        Error::MmError(err)
     }
 }
 
@@ -48,7 +48,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::UartError(err) => write!(f, "UART error: {err}"),
-            Error::AllocError(err) => write!(f, "allocator error: {err}"),
+            Error::MmError(err) => write!(f, "memory management error: {err}"),
             Error::FdtError(err) => write!(f, "FDT error: {err}"),
         }
     }
