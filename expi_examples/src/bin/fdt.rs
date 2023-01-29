@@ -101,15 +101,13 @@ fn kernel_main() {
     let early_fdt = unsafe { EarlyFdt::parse(fdt.header().ptr()).unwrap() };
 
     let node = early_fdt.node("/").unwrap();
-    let address_cells =
-        unsafe { &*early_fdt.property(node, "#address-cells").unwrap() };
-    let size_cells =
-        unsafe { &*early_fdt.property(node, "#size-cells").unwrap() };
+    let address_cells = early_fdt.property(node, "#address-cells").unwrap();
+    let size_cells = early_fdt.property(node, "#size-cells").unwrap();
 
     println!("/ #address-cells={address_cells:x?} #size-cells={size_cells:x?}");
 
     let node = early_fdt.node("/memory@0").unwrap();
-    let reg = unsafe { &*early_fdt.property(node, "reg").unwrap() };
+    let reg = early_fdt.property(node, "reg").unwrap();
 
     println!("/memory@0 reg: {reg:x?}");
 

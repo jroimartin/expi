@@ -1,12 +1,14 @@
 //! FDT parser.
 
 use alloc::collections::BTreeMap;
-use alloc::string::{FromUtf8Error, String};
+use alloc::ffi::{CString, FromVecWithNulError, IntoStringError};
+use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::array::TryFromSliceError;
 use core::fmt;
 use core::num::TryFromIntError;
+use core::slice;
 
 use crate::globals::GLOBALS;
 use crate::ptr::{self, MemReader};
@@ -75,8 +77,14 @@ impl From<TryFromIntError> for Error {
     }
 }
 
-impl From<FromUtf8Error> for Error {
-    fn from(_err: FromUtf8Error) -> Error {
+impl From<FromVecWithNulError> for Error {
+    fn from(_err: FromVecWithNulError) -> Error {
+        Error::ConversionError
+    }
+}
+
+impl From<IntoStringError> for Error {
+    fn from(_err: IntoStringError) -> Error {
         Error::ConversionError
     }
 }
@@ -338,17 +346,16 @@ impl Property {
 
     /// Returns the value as [`String`].
     pub fn to_string(&self) -> Result<String, Error> {
-        let bytes = self.0.strip_suffix(&[0]).ok_or(Error::ConversionError)?;
-        Ok(String::from_utf8(bytes.to_vec())?)
+        Ok(CString::from_vec_with_nul(self.0.clone())?.into_string()?)
     }
 
     /// Returns the value as [`String`] list.
     pub fn to_stringlist(&self) -> Result<Vec<String>, Error> {
-        let bytes = self.0.strip_suffix(&[0]).ok_or(Error::ConversionError)?;
-        let stringlist = bytes
-            .split(|x| *x == 0)
-            .map(|x| String::from_utf8(x.to_vec()))
-            .collect::<Result<Vec<String>, FromUtf8Error>>()?;
+        let stringlist = self
+            .0
+            .split_inclusive(|x| *x == 0)
+            .map(|x| Ok(CString::from_vec_with_nul(x.to_vec())?.into_string()?))
+            .collect::<Result<Vec<String>, Error>>()?;
         Ok(stringlist)
     }
 }
@@ -471,7 +478,7 @@ impl StructureBlock {
             }
         }
 
-        Ok((node_name, node))
+        Ok((node_name.into(), node))
     }
 
     /// Parses a devicetree property. Returns the tuple `(name, property)`.
@@ -496,7 +503,7 @@ impl StructureBlock {
         // Skip padding.
         mr.set_position((mr.position() + 3) & !3);
 
-        Ok((name, Property(value)))
+        Ok((name.into(), Property(value)))
     }
 
     /// Returns the root node of the [`StructureBlock`].
@@ -654,7 +661,7 @@ impl EarlyFdt {
                     Token::BeginNode => {
                         level += 1;
 
-                        let name = unsafe { &*mr.slice_from_cstr() };
+                        let name = unsafe { mr.read_cstr()? };
                         // Skip padding.
                         mr.set_position((mr.position() + 3) & !3);
 
@@ -663,7 +670,7 @@ impl EarlyFdt {
                             continue;
                         }
 
-                        if name != node_name.as_bytes() {
+                        if name != node_name {
                             // Wrong name.
                             continue;
                         }
@@ -701,11 +708,11 @@ impl EarlyFdt {
     /// This function requires to parse the FDT until it finds the property.
     /// It does it in-place without allocating memory, so it is suitable for
     /// the early stages of boot when the global allocator is not available.
-    pub fn property(
+    pub fn property<'a>(
         &self,
         node_offset: Offset,
         property_name: impl AsRef<str>,
-    ) -> Result<*const [u8], Error> {
+    ) -> Result<&'a [u8], Error> {
         let mut mr = MemReader::new(self.header.ptr + node_offset.0);
 
         let strings_ptr =
@@ -719,7 +726,7 @@ impl EarlyFdt {
                 Token::BeginNode => {
                     level += 1;
 
-                    let _name = unsafe { &*mr.slice_from_cstr() };
+                    let _name = unsafe { mr.read_cstr()? };
                     // Skip padding.
                     mr.set_position((mr.position() + 3) & !3);
                 }
@@ -743,11 +750,10 @@ impl EarlyFdt {
 
                     let nameoff = unsafe { mr.read_be::<u32>()? as usize };
 
-                    let name = unsafe {
-                        &*ptr::slice_from_cstr(strings_ptr + nameoff)
-                    };
+                    let name =
+                        unsafe { ptr::read_cstr(strings_ptr + nameoff)? };
 
-                    if name != property_name.as_ref().as_bytes() {
+                    if name != property_name.as_ref() {
                         // Wrong name. So, skip value and padding.
                         mr.skip((len + 3) & !3);
                         continue;
@@ -755,10 +761,10 @@ impl EarlyFdt {
 
                     // We found the requested property at the requested
                     // path.
-                    break Ok(core::ptr::slice_from_raw_parts(
-                        mr.position() as *const u8,
-                        len,
-                    ));
+                    let s = unsafe {
+                        slice::from_raw_parts(mr.position() as *const u8, len)
+                    };
+                    break Ok(s);
                 }
                 Token::Nop => {}
                 Token::End => break Err(Error::MalformedStructureBlock),

@@ -1,8 +1,8 @@
 //! Utilities for dealing with memory through pointers.
 
-use alloc::string::{FromUtf8Error, String};
-use alloc::vec::Vec;
+use core::ffi::{c_char, CStr};
 use core::fmt;
+use core::str::Utf8Error;
 
 use crate::binary::FromBytes;
 
@@ -18,12 +18,12 @@ pub enum Error {
     TypeSizeIsTooBig,
 
     /// The read bytes cannot be converted into an UTF-8 string.
-    InvalidUtf8String(FromUtf8Error),
+    InvalidUtf8String,
 }
 
-impl From<FromUtf8Error> for Error {
-    fn from(err: FromUtf8Error) -> Error {
-        Error::InvalidUtf8String(err)
+impl From<Utf8Error> for Error {
+    fn from(_err: Utf8Error) -> Error {
+        Error::InvalidUtf8String
     }
 }
 
@@ -31,9 +31,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::TypeSizeIsTooBig => write!(f, "requested type is to big"),
-            Error::InvalidUtf8String(err) => {
-                write!(f, "invalid UTF-8 string: {err}")
-            }
+            Error::InvalidUtf8String => write!(f, "invalid UTF-8 string"),
         }
     }
 }
@@ -109,22 +107,10 @@ impl MemReader {
     ///
     /// The user is free to point the internal reader position to any memory
     /// location, therefore this function is unsafe.
-    pub unsafe fn read_cstr(&mut self) -> Result<String, Error> {
+    pub unsafe fn read_cstr<'a>(&mut self) -> Result<&'a str, Error> {
         let s = read_cstr(self.pos)?;
         self.pos += s.len() + 1;
         Ok(s)
-    }
-
-    /// Creates a raw slice from a null-terminated string.
-    ///
-    /// # Safety
-    ///
-    /// The user is free to point the internal reader position to any memory
-    /// location, therefore this function is unsafe.
-    pub unsafe fn slice_from_cstr(&mut self) -> *const [u8] {
-        let s = slice_from_cstr(self.pos);
-        self.pos += (*s).len() + 1;
-        s
     }
 
     /// Sets the memory position of the next read. Setting the internal
@@ -149,26 +135,7 @@ impl MemReader {
 /// # Safety
 ///
 /// This function accepts an arbitrary memory address, therefore it is unsafe.
-pub unsafe fn read_cstr(ptr: usize) -> Result<String, Error> {
-    let mut ptr = ptr as *const u8;
-    let mut bytes = Vec::new();
-    while *ptr != 0 {
-        bytes.push(*ptr);
-        ptr = ptr.add(1);
-    }
-    Ok(String::from_utf8(bytes)?)
-}
-
-/// Creates a raw slice from a pointer to a null-terminated string.
-///
-/// # Safety
-///
-/// This function accepts an arbitrary memory address, therefore it is unsafe.
-pub unsafe fn slice_from_cstr(ptr: usize) -> *const [u8] {
-    let mut cur = ptr as *const u8;
-    while *cur != 0 {
-        cur = cur.add(1);
-    }
-    let len = (cur as usize) - ptr;
-    core::ptr::slice_from_raw_parts(ptr as *const u8, len)
+pub unsafe fn read_cstr<'a>(ptr: usize) -> Result<&'a str, Error> {
+    let s = CStr::from_ptr(ptr as *const c_char);
+    Ok(s.to_str()?)
 }

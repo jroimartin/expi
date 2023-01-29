@@ -206,12 +206,11 @@ pub fn init(dtb_ptr32: u32) -> Result<(), AllocError> {
 
     // Add ARM memory to the free memory RangeSet.
     let root_off = early_fdt.node("/").unwrap();
-    let address_cells =
-        unsafe { &*early_fdt.property(root_off, "#address-cells")? };
-    let size_cells = unsafe { &*early_fdt.property(root_off, "#size-cells")? };
+    let address_cells = early_fdt.property(root_off, "#address-cells")?;
+    let size_cells = early_fdt.property(root_off, "#size-cells")?;
 
     let memory_off = early_fdt.node("/memory@0")?;
-    let memory_reg = unsafe { &*early_fdt.property(memory_off, "reg")? };
+    let memory_reg = early_fdt.property(memory_off, "reg")?;
     let memory_reg = Reg::decode(memory_reg, address_cells, size_cells)?;
 
     for &(address, size) in memory_reg.entries() {
