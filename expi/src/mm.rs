@@ -205,13 +205,14 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
 
     // Add ARM memory to the free memory RangeSet.
     let root_off = early_fdt.node("/").unwrap();
-    let address_cells = early_fdt.property(root_off, "#address-cells")?;
-    let size_cells = early_fdt.property(root_off, "#size-cells")?;
+    let address_cells =
+        early_fdt.property(root_off, "#address-cells")?.to_u32()?;
+    let size_cells = early_fdt.property(root_off, "#size-cells")?.to_u32()?;
 
     let mut memory_found = false;
     for node_ptr in &early_fdt {
         if let Ok(device_type) = early_fdt.property(node_ptr, "device_type") {
-            if device_type != b"memory\x00" {
+            if device_type.to_str()? != "memory" {
                 continue;
             }
 

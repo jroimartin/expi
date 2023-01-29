@@ -6,9 +6,11 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{format, vec};
 use core::array::TryFromSliceError;
+use core::ffi::{CStr, FromBytesWithNulError};
 use core::fmt;
 use core::num::TryFromIntError;
 use core::slice;
+use core::str::Utf8Error;
 
 use crate::globals::GLOBALS;
 use crate::ptr::{self, MemReader};
@@ -83,8 +85,20 @@ impl From<FromVecWithNulError> for Error {
     }
 }
 
+impl From<FromBytesWithNulError> for Error {
+    fn from(_err: FromBytesWithNulError) -> Error {
+        Error::ConversionError
+    }
+}
+
 impl From<IntoStringError> for Error {
     fn from(_err: IntoStringError) -> Error {
+        Error::ConversionError
+    }
+}
+
+impl From<Utf8Error> for Error {
+    fn from(_err: Utf8Error) -> Error {
         Error::ConversionError
     }
 }
@@ -593,6 +607,38 @@ impl StructureBlock {
     }
 }
 
+/// Represents a reference to a devicetree property.
+#[derive(Debug)]
+pub struct RefProperty<'a>(&'a [u8]);
+
+impl RefProperty<'_> {
+    /// Returns true if the value is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Returns the value as [`u32`].
+    pub fn to_u32(&self) -> Result<u32, Error> {
+        Ok(u32::from_be_bytes(self.0.try_into()?))
+    }
+
+    /// Returns the value as [`u64`].
+    pub fn to_u64(&self) -> Result<u64, Error> {
+        Ok(u64::from_be_bytes(self.0.try_into()?))
+    }
+
+    /// Returns the value as `&str`.
+    pub fn to_str(&self) -> Result<&str, Error> {
+        Ok(CStr::from_bytes_with_nul(self.0)?.to_str()?)
+    }
+}
+
+impl AsRef<[u8]> for RefProperty<'_> {
+    fn as_ref(&self) -> &[u8] {
+        self.0
+    }
+}
+
 /// EarlyFdt is a simplified version of [`Fdt`]. It is the result of parsing
 /// the minimum necessary fields required during the early stages of the kernel
 /// initialization.
@@ -719,11 +765,11 @@ impl EarlyFdt {
     /// This function requires to parse the FDT until it finds the property.
     /// It does it in-place without allocating memory, so it is suitable for
     /// the early stages of boot when the global allocator is not available.
-    pub fn property<'a>(
+    pub fn property(
         &self,
         node_ptr: FdtPointer,
         property_name: impl AsRef<str>,
-    ) -> Result<&'a [u8], Error> {
+    ) -> Result<RefProperty, Error> {
         let mut mr = MemReader::new(node_ptr.0);
 
         let strings_ptr =
@@ -771,10 +817,10 @@ impl EarlyFdt {
                     }
 
                     // We found the requested property at the requested path.
-                    let s = unsafe {
+                    let value = unsafe {
                         slice::from_raw_parts(mr.position() as *const u8, len)
                     };
-                    break Ok(s);
+                    break Ok(RefProperty(value));
                 }
                 Token::Nop => {}
                 Token::End => break Err(Error::MalformedStructureBlock),

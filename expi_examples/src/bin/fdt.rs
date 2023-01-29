@@ -83,8 +83,8 @@ fn fdt_example() -> Result<(), Error> {
 
     println!("---");
 
-    let address_cells = root.property("#address-cells")?;
-    let size_cells = root.property("#size-cells")?;
+    let address_cells = root.property("#address-cells")?.to_u32()?;
+    let size_cells = root.property("#size-cells")?.to_u32()?;
 
     let memory = fdt.structure_block().node("/memory@0")?;
     let memory_reg = memory.property("reg")?;
@@ -131,10 +131,10 @@ fn early_fdt_example() -> Result<(), Error> {
     let early_fdt = unsafe { EarlyFdt::parse(fdt.header().ptr())? };
 
     let root = early_fdt.node("/")?;
-    let address_cells = early_fdt.property(root, "#address-cells")?;
-    let size_cells = early_fdt.property(root, "#size-cells")?;
+    let address_cells = early_fdt.property(root, "#address-cells")?.to_u32()?;
+    let size_cells = early_fdt.property(root, "#size-cells")?.to_u32()?;
 
-    println!("/ #address-cells={address_cells:x?} #size-cells={size_cells:x?}");
+    println!("/ #address-cells={address_cells:x} #size-cells={size_cells:x}");
 
     let memory = early_fdt.node("/memory@0")?;
     let reg = early_fdt.property(memory, "reg")?;

@@ -5,13 +5,13 @@ use core::convert::TryInto;
 use crate::fdt::Error;
 
 /// Size of the array used to store the reg property entries.
-const REG_SIZE: usize = 32;
+const REG_ENTRIES_SIZE: usize = 32;
 
 /// The devicetree `reg` property.
 #[derive(Debug)]
 pub struct Reg {
     /// The entries of the `reg` property.
-    entries: [(usize, usize); REG_SIZE],
+    entries: [(usize, usize); REG_ENTRIES_SIZE],
 
     /// The number of entries of the fixed-size array that are in use.
     in_use: usize,
@@ -21,17 +21,14 @@ impl Reg {
     /// Decodes a devicetree `reg` property.
     pub fn decode(
         reg: impl AsRef<[u8]>,
-        address_cells: impl AsRef<[u8]>,
-        size_cells: impl AsRef<[u8]>,
+        address_cells: u32,
+        size_cells: u32,
     ) -> Result<Reg, Error> {
-        let address_cells =
-            u32::from_be_bytes(address_cells.as_ref().try_into()?) as usize;
-        let size_cells =
-            u32::from_be_bytes(size_cells.as_ref().try_into()?) as usize;
-
         let reg = reg.as_ref();
+        let address_cells = address_cells as usize;
+        let size_cells = size_cells as usize;
 
-        let mut entries = [(0, 0); REG_SIZE];
+        let mut entries = [(0, 0); REG_ENTRIES_SIZE];
         let mut in_use = 0;
 
         loop {
@@ -43,7 +40,7 @@ impl Reg {
                 break;
             }
 
-            if in_use >= REG_SIZE {
+            if in_use >= REG_ENTRIES_SIZE {
                 return Err(Error::FullInternalArray);
             }
 

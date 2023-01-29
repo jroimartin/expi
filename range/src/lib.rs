@@ -88,14 +88,14 @@ impl Range {
     }
 }
 
-/// Fixed length of the `RangeSet`.
-const RANGE_SET_LEN: usize = 256;
+/// Size of the fixed-size array that contains the `RangeSet` entries.
+const RANGE_SET_SIZE: usize = 256;
 
 /// Represents a set of ranges.
 #[derive(Debug)]
 pub struct RangeSet {
     /// Ranges within the `RangeSet`.
-    ranges: [Range; RANGE_SET_LEN],
+    ranges: [Range; RANGE_SET_SIZE],
 
     /// Number of elements in the fixed size array that are being used.
     in_use: usize,
@@ -111,7 +111,7 @@ impl RangeSet {
     /// Returns an empty `RangeSet`.
     pub fn new() -> Self {
         RangeSet {
-            ranges: [Range::default(); RANGE_SET_LEN],
+            ranges: [Range::default(); RANGE_SET_SIZE],
             in_use: 0,
         }
     }
@@ -397,7 +397,7 @@ mod tests {
     fn test_rangeset_insert_full() {
         let mut rangeset = RangeSet::new();
 
-        for i in 0..RANGE_SET_LEN {
+        for i in 0..RANGE_SET_SIZE {
             let point = 2 * (i as u64);
             rangeset.insert(Range::new(point, point).unwrap()).unwrap();
         }
@@ -407,7 +407,7 @@ mod tests {
     fn test_rangeset_insert_full_middle() {
         let mut rangeset = RangeSet::new();
 
-        for i in 0..RANGE_SET_LEN - 1 {
+        for i in 0..RANGE_SET_SIZE - 1 {
             let point = 10 * (i as u64);
             rangeset.insert(Range::new(point, point).unwrap()).unwrap();
         }
@@ -419,7 +419,7 @@ mod tests {
     fn test_rangeset_insert_full_plus_one() {
         let mut rangeset = RangeSet::new();
 
-        for i in 0..RANGE_SET_LEN {
+        for i in 0..RANGE_SET_SIZE {
             let point = 2 * (i as u64);
             rangeset.insert(Range::new(point, point).unwrap()).unwrap();
         }
@@ -434,7 +434,7 @@ mod tests {
     fn test_rangeset_insert_full_reuse() {
         let mut rangeset = RangeSet::new();
 
-        for i in 0..RANGE_SET_LEN {
+        for i in 0..RANGE_SET_SIZE {
             let point = 2 * (i as u64);
             rangeset.insert(Range::new(point, point).unwrap()).unwrap();
         }
@@ -624,7 +624,7 @@ mod tests {
     fn test_rangeset_remove_full_split() {
         let mut rangeset = RangeSet::new();
 
-        for i in 0..RANGE_SET_LEN {
+        for i in 0..RANGE_SET_SIZE {
             let point = 10 * (i as u64);
             rangeset
                 .insert(Range::new(point, point + 5).unwrap())
@@ -641,7 +641,7 @@ mod tests {
     fn test_rangeset_remove_full() {
         let mut rangeset = RangeSet::new();
 
-        for i in 0..RANGE_SET_LEN - 1 {
+        for i in 0..RANGE_SET_SIZE - 1 {
             let point = 10 * (i as u64);
             rangeset
                 .insert(Range::new(point, point + 5).unwrap())
