@@ -58,6 +58,9 @@ pub enum Error {
     /// Type conversion error.
     ConversionError,
 
+    /// Out-of-bounds access.
+    OutOfBounds,
+
     /// Error while dealing with pointers.
     PtrError(ptr::Error),
 }
@@ -126,6 +129,7 @@ impl fmt::Display for Error {
             Error::NotFound => write!(f, "not found"),
             Error::AmbiguousPath => write!(f, "ambiguous path"),
             Error::ConversionError => write!(f, "conversion error"),
+            Error::OutOfBounds => write!(f, "out-of-bounds access"),
             Error::PtrError(err) => write!(f, "memory access error: {err}"),
         }
     }

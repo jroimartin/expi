@@ -41,18 +41,22 @@ impl<T: AsRef<[u8]>> Reg<T> {
 
     /// Executes a new iteration. It is called by `Iterator::next`.
     fn iter_next(&mut self) -> Result<Option<(usize, usize)>, Error> {
+        let bytes = self.bytes.as_ref();
+
+        if self.idx >= bytes.len() {
+            return Ok(None);
+        }
+
         let address_idx = self.idx;
         let size_idx = address_idx + self.address_cells * 4;
         let end_idx = size_idx + self.size_cells * 4;
 
-        let bytes = self.bytes.as_ref();
-
-        if end_idx > bytes.len() {
-            return Ok(None);
-        }
-
-        let address = usize_from_be_bytes(&bytes[address_idx..size_idx])?;
-        let size = usize_from_be_bytes(&bytes[size_idx..end_idx])?;
+        let address_bytes =
+            bytes.get(address_idx..size_idx).ok_or(Error::OutOfBounds)?;
+        let address = usize_from_be_bytes(address_bytes)?;
+        let size_bytes =
+            bytes.get(size_idx..end_idx).ok_or(Error::OutOfBounds)?;
+        let size = usize_from_be_bytes(size_bytes)?;
 
         self.idx = end_idx;
 
