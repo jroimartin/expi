@@ -235,7 +235,9 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
 
     // Reserve the regions found in the DTB's memory reservation block.
     let mem_rsv_block = early_fdt.mem_rsv_block();
-    for region in mem_rsv_block.regions() {
+    for region in mem_rsv_block {
+        let region = region?;
+
         let addr = region.address();
         let size = region.size();
         let rsv = Range::new(addr, addr + size - 1)?;

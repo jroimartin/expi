@@ -18,9 +18,6 @@ use crate::ptr::{self, MemReader};
 
 pub mod property;
 
-/// Size of the array used to store the memory reservation block.
-const MEM_RSVMAP_SIZE: usize = 32;
-
 /// FDT parsing error.
 #[derive(Debug)]
 pub enum Error {
@@ -263,49 +260,67 @@ impl MemRsvRegion {
     }
 }
 
-/// Memory reservation block.
+/// Iterator over the entries of the memory reservation block.
+///
+/// It yields a `Result` with a [`MemRsvRegion`] for every entry. After an
+/// error, al successive calls will yield `None`.
 #[derive(Debug)]
 pub struct MemRsvBlock {
-    /// Internal fixed size array to store the reserved memory regions.
-    regions: [MemRsvRegion; MEM_RSVMAP_SIZE],
+    /// Current position.
+    entry_ptr: FdtPtr,
 
-    /// Number of elements in the fixed size array that are being used.
-    in_use: usize,
+    /// If `done` is true, the `Iterator` has finished.
+    done: bool,
 }
 
 impl MemRsvBlock {
-    /// Parses the memory reservation block.
-    fn parse(header: &Header) -> Result<MemRsvBlock, Error> {
-        let ptr = header.ptr + (header.off_mem_rsvmap as usize);
-        let mut mr = MemReader::new(ptr);
+    /// Creates a [`MemRsvBlock`] iterator.
+    fn parse(header: &Header) -> MemRsvBlock {
+        let entry_ptr = FdtPtr(header.ptr + (header.off_mem_rsvmap as usize));
 
-        let mut regions = [MemRsvRegion::default(); MEM_RSVMAP_SIZE];
-        let mut in_use = 0;
-        loop {
-            if in_use >= MEM_RSVMAP_SIZE {
-                return Err(Error::FullInternalArray);
-            }
+        MemRsvBlock {
+            entry_ptr,
+            done: false,
+        }
+    }
 
-            let address = unsafe { mr.read_be::<u64>()? };
-            let size = unsafe { mr.read_be::<u64>()? };
+    /// Executes a new iteration. It is called by `Iterator::next`.
+    pub fn iter_next(&mut self) -> Result<Option<MemRsvRegion>, Error> {
+        let mut mr = MemReader::new(self.entry_ptr.0);
 
-            if address == 0 && size == 0 {
-                break;
-            }
+        let address = unsafe { mr.read_be::<u64>()? };
+        let size = unsafe { mr.read_be::<u64>()? };
 
-            regions[in_use] = MemRsvRegion { address, size };
-
-            in_use += 1;
+        if address == 0 && size == 0 {
+            return Ok(None);
         }
 
-        Ok(MemRsvBlock { regions, in_use })
-    }
-
-    /// Returns the reserved memory regions.
-    pub fn regions(&self) -> &[MemRsvRegion] {
-        &self.regions[..self.in_use]
+        self.entry_ptr = FdtPtr(mr.position());
+        Ok(Some(MemRsvRegion { address, size }))
     }
 }
+
+impl Iterator for MemRsvBlock {
+    type Item = Result<MemRsvRegion, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        let retval = self.iter_next();
+
+        self.done = match retval {
+            Ok(Some(_)) => false,
+            Ok(None) => true,
+            Err(_) => true,
+        };
+
+        retval.transpose()
+    }
+}
+
+impl FusedIterator for MemRsvBlock {}
 
 /// The structure block is composed of a sequence of pieces, each beginning
 /// with one of these tokens.
@@ -654,9 +669,6 @@ impl AsRef<[u8]> for RefProperty<'_> {
 pub struct EarlyFdt {
     /// FDT header.
     header: Header,
-
-    /// Memory reservation block.
-    mem_rsv_block: MemRsvBlock,
 }
 
 /// A pointer within the FDT boundaries.
@@ -676,13 +688,7 @@ impl EarlyFdt {
         // Parse FDT header.
         let header = Header::parse(ptr)?;
 
-        // Parse reserved memory regions.
-        let mem_rsv_block = MemRsvBlock::parse(&header)?;
-
-        Ok(EarlyFdt {
-            header,
-            mem_rsv_block,
-        })
+        Ok(EarlyFdt { header })
     }
 
     /// Returns the FDT header.
@@ -691,8 +697,8 @@ impl EarlyFdt {
     }
 
     /// Returns the memory reservation block.
-    pub fn mem_rsv_block(&self) -> &MemRsvBlock {
-        &self.mem_rsv_block
+    pub fn mem_rsv_block(&self) -> MemRsvBlock {
+        MemRsvBlock::parse(&self.header)
     }
 
     /// Scans the FDT for a given path and returns a pointer to the node.
@@ -848,7 +854,7 @@ pub struct Fdt {
     header: Header,
 
     /// Memory reservation block.
-    mem_rsv_block: MemRsvBlock,
+    mem_rsv_block: Vec<MemRsvRegion>,
 
     /// FDT structure block.
     structure_block: StructureBlock,
@@ -868,7 +874,8 @@ impl Fdt {
         let header = Header::parse(ptr)?;
 
         // Parse reserved memory regions.
-        let mem_rsv_block = MemRsvBlock::parse(&header)?;
+        let mem_rsv_block = MemRsvBlock::parse(&header)
+            .collect::<Result<Vec<MemRsvRegion>, Error>>()?;
 
         // Parse FDT structure block.
         let structure_block = StructureBlock::parse(&header)?;
@@ -886,7 +893,7 @@ impl Fdt {
     }
 
     /// Returns the memory reservation block.
-    pub fn mem_rsv_block(&self) -> &MemRsvBlock {
+    pub fn mem_rsv_block(&self) -> &[MemRsvRegion] {
         &self.mem_rsv_block
     }
 
