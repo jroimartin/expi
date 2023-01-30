@@ -951,6 +951,8 @@ impl<'a> Iterator for Nodes<'a> {
     }
 }
 
+impl FusedIterator for Nodes<'_> {}
+
 impl<'a> IntoIterator for &'a StructureBlock {
     type Item = &'a Node;
     type IntoIter = Nodes<'a>;
