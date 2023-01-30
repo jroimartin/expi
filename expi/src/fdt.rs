@@ -959,54 +959,77 @@ impl<'a> IntoIterator for &'a Node {
 
 /// Iterator over the nodes of an [`EarlyFdt`].
 ///
-/// It yields a pointer to every visited node.
+/// It yields a `Result` with a pointer to every visited node. After an error,
+/// all successive calls will yield `None`.
 pub struct EarlyIter {
     /// Current position.
     node_ptr: FdtPtr,
+
+    /// If `done` is true, the `Iterator` has finished.
+    done: bool,
 }
 
 impl EarlyIter {
     /// Creates an iterator that traverses the nodes of an [`EarlyFdt`].
     fn new(node_ptr: FdtPtr) -> EarlyIter {
-        EarlyIter { node_ptr }
+        EarlyIter {
+            node_ptr,
+            done: false,
+        }
     }
-}
 
-impl Iterator for EarlyIter {
-    type Item = FdtPtr;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    /// Executes a new iteration. It is called by `Iterator::next`.
+    fn iter_next(&mut self) -> Result<Option<FdtPtr>, Error> {
         let mut mr = MemReader::new(self.node_ptr.0);
 
         loop {
-            let token = unsafe { mr.read_be::<u32>().ok()? };
+            let token = unsafe { mr.read_be::<u32>()? };
             match token.into() {
                 Token::BeginNode => {
-                    let _name = unsafe { mr.read_cstr().ok()? };
+                    let _name = unsafe { mr.read_cstr()? };
                     // Skip padding.
                     mr.set_position((mr.position() + 3) & !3);
 
                     self.node_ptr = FdtPtr(mr.position());
-                    break Some(self.node_ptr);
+                    break Ok(Some(self.node_ptr));
                 }
                 Token::EndNode => {}
                 Token::Prop => {
-                    let len = unsafe { mr.read_be::<u32>().ok()? as usize };
-
+                    let len = unsafe { mr.read_be::<u32>()? as usize };
                     // Skip name offset (4), property value (len) and
                     // padding.
                     mr.skip((4 + len + 3) & !3);
                 }
                 Token::Nop => {}
-                Token::End => break None,
-                Token::Unknown => break None,
+                Token::End => break Ok(None),
+                Token::Unknown => break Ok(None),
             }
         }
     }
 }
 
+impl Iterator for EarlyIter {
+    type Item = Result<FdtPtr, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.done {
+            return None;
+        }
+
+        let retval = self.iter_next();
+
+        self.done = match retval {
+            Ok(Some(_)) => false,
+            Ok(None) => true,
+            Err(_) => true,
+        };
+
+        retval.transpose()
+    }
+}
+
 impl IntoIterator for &EarlyFdt {
-    type Item = FdtPtr;
+    type Item = Result<FdtPtr, Error>;
     type IntoIter = EarlyIter;
 
     fn into_iter(self) -> Self::IntoIter {

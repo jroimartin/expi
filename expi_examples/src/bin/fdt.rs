@@ -90,6 +90,7 @@ fn fdt_example() -> Result<(), Error> {
     let memory_reg = memory.property("reg")?;
     let reg_entries = Reg::decode(memory_reg, address_cells, size_cells);
     for entry in reg_entries {
+        let entry = entry?;
         println!("/memory@0 entry: {entry:x?}");
     }
 
@@ -140,6 +141,7 @@ fn early_fdt_example() -> Result<(), Error> {
     let memory_reg = early_fdt.property(memory, "reg")?;
     let reg_entries = Reg::decode(memory_reg, address_cells, size_cells);
     for entry in reg_entries {
+        let entry = entry?;
         println!("/memory@0 entry: {entry:x?}");
     }
 
@@ -154,6 +156,7 @@ fn early_fdt_iter_example() -> Result<(), Error> {
     let early_fdt = unsafe { EarlyFdt::parse(fdt.header().ptr())? };
 
     for node_ptr in early_fdt.iter().take(5) {
+        let node_ptr = node_ptr?;
         println!("{:x?}", node_ptr);
     }
 

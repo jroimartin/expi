@@ -210,6 +210,7 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
     let size_cells = early_fdt.property(root_off, "#size-cells")?.to_u32()?;
 
     for node_ptr in &early_fdt {
+        let node_ptr = node_ptr?;
         if let Ok(device_type) = early_fdt.property(node_ptr, "device_type") {
             if device_type.to_str()? != "memory" {
                 continue;
@@ -217,7 +218,8 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
 
             let reg = early_fdt.property(node_ptr, "reg")?;
             let entries = Reg::decode(reg, address_cells, size_cells);
-            for (address, size) in entries {
+            for entry in entries {
+                let (address, size) = entry?;
                 let region =
                     Range::new(address as u64, (address + size - 1) as u64)?;
                 free_mem.insert(region)?;
