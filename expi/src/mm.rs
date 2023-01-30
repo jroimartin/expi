@@ -217,7 +217,7 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
             }
 
             let reg = early_fdt.property(node_ptr, "reg")?;
-            let entries = Reg::decode(reg, address_cells, size_cells);
+            let entries = Reg::new(reg, address_cells, size_cells);
             for entry in entries {
                 let (address, size) = entry?;
                 let region =
@@ -234,7 +234,7 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
     free_mem.remove(dtb_region)?;
 
     // Reserve the regions found in the DTB's memory reservation block.
-    for region in early_fdt.mem_rsv_block() {
+    for region in early_fdt.mem_rsv_block_regions() {
         let region = region?;
 
         let addr = region.address();

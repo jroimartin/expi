@@ -265,7 +265,7 @@ impl MemRsvRegion {
 /// It yields a `Result` with a [`MemRsvRegion`] for every entry. After an
 /// error, all successive calls will yield `None`.
 #[derive(Debug)]
-pub struct MemRsvBlock {
+pub struct MemRsvBlockRegions {
     /// Current position.
     entry_ptr: FdtPtr,
 
@@ -273,12 +273,12 @@ pub struct MemRsvBlock {
     done: bool,
 }
 
-impl MemRsvBlock {
-    /// Creates a [`MemRsvBlock`] iterator.
-    fn parse(header: &Header) -> MemRsvBlock {
+impl MemRsvBlockRegions {
+    /// Creates a [`MemRsvBlockRegions`] iterator.
+    fn new(header: &Header) -> MemRsvBlockRegions {
         let entry_ptr = FdtPtr(header.ptr + (header.off_mem_rsvmap as usize));
 
-        MemRsvBlock {
+        MemRsvBlockRegions {
             entry_ptr,
             done: false,
         }
@@ -300,7 +300,7 @@ impl MemRsvBlock {
     }
 }
 
-impl Iterator for MemRsvBlock {
+impl Iterator for MemRsvBlockRegions {
     type Item = Result<MemRsvRegion, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -320,7 +320,7 @@ impl Iterator for MemRsvBlock {
     }
 }
 
-impl FusedIterator for MemRsvBlock {}
+impl FusedIterator for MemRsvBlockRegions {}
 
 /// The structure block is composed of a sequence of pieces, each beginning
 /// with one of these tokens.
@@ -436,8 +436,8 @@ impl Node {
 
     /// Returns an iterator over the nodes of a devicetree starting at this
     /// node.
-    pub fn iter(&self) -> Iter {
-        Iter::new(self)
+    pub fn iter(&self) -> Nodes {
+        Nodes::new(self)
     }
 }
 
@@ -622,7 +622,7 @@ impl StructureBlock {
     }
 
     /// Returns an iterator over the nodes of the devicetree.
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Nodes {
         self.0.iter()
     }
 }
@@ -696,9 +696,9 @@ impl EarlyFdt {
         &self.header
     }
 
-    /// Returns the memory reservation block.
-    pub fn mem_rsv_block(&self) -> MemRsvBlock {
-        MemRsvBlock::parse(&self.header)
+    /// Returns an iterator over the entries of the memory reservation block.
+    pub fn mem_rsv_block_regions(&self) -> MemRsvBlockRegions {
+        MemRsvBlockRegions::new(&self.header)
     }
 
     /// Scans the FDT for a given path and returns a pointer to the node.
@@ -841,9 +841,9 @@ impl EarlyFdt {
     }
 
     /// Returns an iterator over the nodes of the devicetree.
-    pub fn iter(&self) -> EarlyIter {
+    pub fn iter(&self) -> NodePtrs {
         let root_ptr = self.header.ptr + (self.header.off_dt_struct as usize);
-        EarlyIter::new(FdtPtr(root_ptr))
+        NodePtrs::new(FdtPtr(root_ptr))
     }
 }
 
@@ -874,7 +874,7 @@ impl Fdt {
         let header = Header::parse(ptr)?;
 
         // Parse reserved memory regions.
-        let mem_rsv_block = MemRsvBlock::parse(&header)
+        let mem_rsv_block = MemRsvBlockRegions::new(&header)
             .collect::<Result<Vec<MemRsvRegion>, Error>>()?;
 
         // Parse FDT structure block.
@@ -906,7 +906,7 @@ impl Fdt {
 /// Iterator over the nodes of the subree of a [`Node`].
 ///
 /// It yields a reference to every visited node.
-pub struct Iter<'a> {
+pub struct Nodes<'a> {
     /// Contains all the nodes in the subree of a given [`Node`].
     items: Vec<&'a Node>,
 
@@ -914,10 +914,10 @@ pub struct Iter<'a> {
     cur: usize,
 }
 
-impl Iter<'_> {
+impl Nodes<'_> {
     /// Creates an iterator that traverses a devicetree starting at `node`.
-    fn new(node: &Node) -> Iter {
-        Iter {
+    fn new(node: &Node) -> Nodes {
+        Nodes {
             items: Self::traverse(node),
             cur: 0,
         }
@@ -937,7 +937,7 @@ impl Iter<'_> {
     }
 }
 
-impl<'a> Iterator for Iter<'a> {
+impl<'a> Iterator for Nodes<'a> {
     type Item = &'a Node;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -953,7 +953,7 @@ impl<'a> Iterator for Iter<'a> {
 
 impl<'a> IntoIterator for &'a StructureBlock {
     type Item = &'a Node;
-    type IntoIter = Iter<'a>;
+    type IntoIter = Nodes<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -962,7 +962,7 @@ impl<'a> IntoIterator for &'a StructureBlock {
 
 impl<'a> IntoIterator for &'a Node {
     type Item = &'a Node;
-    type IntoIter = Iter<'a>;
+    type IntoIter = Nodes<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -973,7 +973,7 @@ impl<'a> IntoIterator for &'a Node {
 ///
 /// It yields a `Result` with a pointer to every visited node. After an error,
 /// all successive calls will yield `None`.
-pub struct EarlyIter {
+pub struct NodePtrs {
     /// Current position.
     node_ptr: FdtPtr,
 
@@ -981,10 +981,10 @@ pub struct EarlyIter {
     done: bool,
 }
 
-impl EarlyIter {
+impl NodePtrs {
     /// Creates an iterator that traverses the nodes of an [`EarlyFdt`].
-    fn new(node_ptr: FdtPtr) -> EarlyIter {
-        EarlyIter {
+    fn new(node_ptr: FdtPtr) -> NodePtrs {
+        NodePtrs {
             node_ptr,
             done: false,
         }
@@ -1020,7 +1020,7 @@ impl EarlyIter {
     }
 }
 
-impl Iterator for EarlyIter {
+impl Iterator for NodePtrs {
     type Item = Result<FdtPtr, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1040,11 +1040,11 @@ impl Iterator for EarlyIter {
     }
 }
 
-impl FusedIterator for EarlyIter {}
+impl FusedIterator for NodePtrs {}
 
 impl IntoIterator for &EarlyFdt {
     type Item = Result<FdtPtr, Error>;
-    type IntoIter = EarlyIter;
+    type IntoIter = NodePtrs;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

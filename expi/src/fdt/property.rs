@@ -29,7 +29,7 @@ pub struct Reg<T> {
 
 impl<T: AsRef<[u8]>> Reg<T> {
     /// Creates a [`Reg`] iterator.
-    pub fn decode(reg: T, address_cells: u32, size_cells: u32) -> Reg<T> {
+    pub fn new(reg: T, address_cells: u32, size_cells: u32) -> Reg<T> {
         Reg {
             address_cells: address_cells as usize,
             size_cells: size_cells as usize,
