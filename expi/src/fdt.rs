@@ -8,6 +8,7 @@ use alloc::{format, vec};
 use core::array::TryFromSliceError;
 use core::ffi::{CStr, FromBytesWithNulError};
 use core::fmt;
+use core::iter::FusedIterator;
 use core::num::TryFromIntError;
 use core::slice;
 use core::str::Utf8Error;
@@ -1027,6 +1028,8 @@ impl Iterator for EarlyIter {
         retval.transpose()
     }
 }
+
+impl FusedIterator for EarlyIter {}
 
 impl IntoIterator for &EarlyFdt {
     type Item = Result<FdtPtr, Error>;

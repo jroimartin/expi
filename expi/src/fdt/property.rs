@@ -1,6 +1,7 @@
 //! Decoders for common FDT properties.
 
 use core::convert::TryInto;
+use core::iter::FusedIterator;
 
 use crate::fdt::Error;
 
@@ -78,6 +79,8 @@ impl<T: AsRef<[u8]>> Iterator for Reg<T> {
         retval.transpose()
     }
 }
+
+impl<T: AsRef<[u8]>> FusedIterator for Reg<T> {}
 
 /// Creates a native endian integer from its representation as a byte array in
 /// big endian and converts it to `usize`.
