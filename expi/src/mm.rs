@@ -217,8 +217,8 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
             }
 
             let reg = early_fdt.property(node_ptr, "reg")?;
-            let entries = Reg::new(reg, address_cells, size_cells);
-            for entry in entries {
+            let reg = Reg::new(reg, address_cells, size_cells);
+            for entry in reg.entries() {
                 let (address, size) = entry?;
                 let region =
                     Range::new(address as u64, (address + size - 1) as u64)?;

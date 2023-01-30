@@ -5,10 +5,7 @@ use core::iter::FusedIterator;
 
 use crate::fdt::Error;
 
-/// Iterator over the entries of a `reg` property.
-///
-/// It yields a `Result` with the tuple `(address, size)` for every entry.
-/// After an error, all successive calls will yield `None`.
+/// Represents a `reg` property.
 #[derive(Debug)]
 pub struct Reg<T> {
     /// Number of `<u32>` cells to represent the address in the reg property.
@@ -17,8 +14,34 @@ pub struct Reg<T> {
     /// Number of `<u32>` cells to represent the size in the reg property.
     size_cells: usize,
 
-    /// `reg` bytes.
+    /// The value of the `reg` property.
     bytes: T,
+}
+
+impl<T: AsRef<[u8]>> Reg<T> {
+    /// Creates a [`Reg`] with provided parameters.
+    pub fn new(bytes: T, address_cells: u32, size_cells: u32) -> Reg<T> {
+        Reg {
+            address_cells: address_cells as usize,
+            size_cells: size_cells as usize,
+            bytes,
+        }
+    }
+
+    /// Returns an `Iterator` over the entries of the `reg` property.
+    pub fn entries(&self) -> RegEntries<T> {
+        RegEntries::new(self)
+    }
+}
+
+/// Iterator over the entries of a `reg` property.
+///
+/// It yields a `Result` with the tuple `(address, size)` for every entry.
+/// After an error, all successive calls will yield `None`.
+#[derive(Debug)]
+pub struct RegEntries<'a, T> {
+    /// The `reg` property.
+    reg: &'a Reg<T>,
 
     /// Index of the next entry.
     idx: usize,
@@ -27,13 +50,11 @@ pub struct Reg<T> {
     done: bool,
 }
 
-impl<T: AsRef<[u8]>> Reg<T> {
-    /// Creates a [`Reg`] iterator.
-    pub fn new(reg: T, address_cells: u32, size_cells: u32) -> Reg<T> {
-        Reg {
-            address_cells: address_cells as usize,
-            size_cells: size_cells as usize,
-            bytes: reg,
+impl<T: AsRef<[u8]>> RegEntries<'_, T> {
+    /// Creates a [`RegEntries`] iterator.
+    fn new(reg: &Reg<T>) -> RegEntries<T> {
+        RegEntries {
+            reg,
             idx: 0,
             done: false,
         }
@@ -41,15 +62,15 @@ impl<T: AsRef<[u8]>> Reg<T> {
 
     /// Executes a new iteration. It is called by `Iterator::next`.
     fn iter_next(&mut self) -> Result<Option<(usize, usize)>, Error> {
-        let bytes = self.bytes.as_ref();
+        let bytes = self.reg.bytes.as_ref();
 
         if self.idx >= bytes.len() {
             return Ok(None);
         }
 
         let address_idx = self.idx;
-        let size_idx = address_idx + self.address_cells * 4;
-        let end_idx = size_idx + self.size_cells * 4;
+        let size_idx = address_idx + self.reg.address_cells * 4;
+        let end_idx = size_idx + self.reg.size_cells * 4;
 
         let address_bytes =
             bytes.get(address_idx..size_idx).ok_or(Error::OutOfBounds)?;
@@ -64,7 +85,7 @@ impl<T: AsRef<[u8]>> Reg<T> {
     }
 }
 
-impl<T: AsRef<[u8]>> Iterator for Reg<T> {
+impl<T: AsRef<[u8]>> Iterator for RegEntries<'_, T> {
     type Item = Result<(usize, usize), Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -84,7 +105,7 @@ impl<T: AsRef<[u8]>> Iterator for Reg<T> {
     }
 }
 
-impl<T: AsRef<[u8]>> FusedIterator for Reg<T> {}
+impl<T: AsRef<[u8]>> FusedIterator for RegEntries<'_, T> {}
 
 /// Creates a native endian integer from its representation as a byte array in
 /// big endian and converts it to `usize`.

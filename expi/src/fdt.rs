@@ -285,7 +285,7 @@ impl MemRsvBlockRegions {
     }
 
     /// Executes a new iteration. It is called by `Iterator::next`.
-    pub fn iter_next(&mut self) -> Result<Option<MemRsvRegion>, Error> {
+    fn iter_next(&mut self) -> Result<Option<MemRsvRegion>, Error> {
         let mut mr = MemReader::new(self.entry_ptr.0);
 
         let address = unsafe { mr.read_be::<u64>()? };
