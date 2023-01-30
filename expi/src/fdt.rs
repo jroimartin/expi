@@ -263,7 +263,7 @@ impl MemRsvRegion {
 /// Iterator over the entries of the memory reservation block.
 ///
 /// It yields a `Result` with a [`MemRsvRegion`] for every entry. After an
-/// error, al successive calls will yield `None`.
+/// error, all successive calls will yield `None`.
 #[derive(Debug)]
 pub struct MemRsvBlock {
     /// Current position.
