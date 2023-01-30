@@ -234,8 +234,7 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
     free_mem.remove(dtb_region)?;
 
     // Reserve the regions found in the DTB's memory reservation block.
-    let mem_rsv_block = early_fdt.mem_rsv_block();
-    for region in mem_rsv_block {
+    for region in early_fdt.mem_rsv_block() {
         let region = region?;
 
         let addr = region.address();

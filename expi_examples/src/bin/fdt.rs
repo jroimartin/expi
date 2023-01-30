@@ -94,6 +94,11 @@ fn fdt_example() -> Result<(), Error> {
         println!("/memory@0 entry: {entry:x?}");
     }
 
+    println!("---");
+
+    let mem_rsv_block = fdt.mem_rsv_block();
+    println!("{mem_rsv_block:x?}");
+
     Ok(())
 }
 
@@ -143,6 +148,13 @@ fn early_fdt_example() -> Result<(), Error> {
     for entry in reg_entries {
         let entry = entry?;
         println!("/memory@0 entry: {entry:x?}");
+    }
+
+    println!("---");
+
+    for region in early_fdt.mem_rsv_block() {
+        let region = region?;
+        println!("{region:x?}");
     }
 
     Ok(())
