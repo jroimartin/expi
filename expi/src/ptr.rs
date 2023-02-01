@@ -107,9 +107,9 @@ impl MemReader {
     ///
     /// The user is free to point the internal reader position to any memory
     /// location, therefore this function is unsafe.
-    pub unsafe fn read_cstr<'a>(&mut self) -> Result<&'a str, Error> {
+    pub unsafe fn read_cstr(&mut self) -> Result<*const str, Error> {
         let s = read_cstr(self.pos)?;
-        self.pos += s.len() + 1;
+        self.pos += (*s).len() + 1;
         Ok(s)
     }
 
@@ -135,7 +135,7 @@ impl MemReader {
 /// # Safety
 ///
 /// This function accepts an arbitrary memory address, therefore it is unsafe.
-pub unsafe fn read_cstr<'a>(ptr: usize) -> Result<&'a str, Error> {
+pub unsafe fn read_cstr(ptr: usize) -> Result<*const str, Error> {
     let s = CStr::from_ptr(ptr as *const c_char);
     Ok(s.to_str()?)
 }

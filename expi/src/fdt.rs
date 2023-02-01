@@ -493,7 +493,7 @@ impl StructureBlock {
         mr: &mut MemReader,
         header: &Header,
     ) -> Result<(String, Node), Error> {
-        let node_name = mr.read_cstr()?;
+        let node_name = &*mr.read_cstr()?;
         // Skip padding.
         mr.set_position((mr.position() + 3) & !3);
 
@@ -540,7 +540,7 @@ impl StructureBlock {
         let nameoff = mr.read_be::<u32>()? as usize;
 
         let strings_ptr = header.ptr + (header.off_dt_strings as usize);
-        let name = ptr::read_cstr(strings_ptr + nameoff)?;
+        let name = &*ptr::read_cstr(strings_ptr + nameoff)?;
 
         let mut value = vec![0u8; len];
         mr.read(&mut value);
@@ -729,7 +729,7 @@ impl EarlyFdt {
                     Token::BeginNode => {
                         level += 1;
 
-                        let name = unsafe { mr.read_cstr()? };
+                        let name = unsafe { &*mr.read_cstr()? };
                         // Skip padding.
                         mr.set_position((mr.position() + 3) & !3);
 
@@ -819,7 +819,7 @@ impl EarlyFdt {
                     let nameoff = unsafe { mr.read_be::<u32>()? as usize };
 
                     let name =
-                        unsafe { ptr::read_cstr(strings_ptr + nameoff)? };
+                        unsafe { &*ptr::read_cstr(strings_ptr + nameoff)? };
 
                     if name != property_name.as_ref() {
                         // Wrong name. So, skip value and padding.
