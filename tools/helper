@@ -1,0 +1,69 @@
+#!/bin/bash
+
+set -e -u
+
+# Executes cargo recursively in all directories with a "Cargo.toml" file.
+function rcargo {
+	for d in $(find . -name 'Cargo.toml'); do
+		pushd "$(dirname $d)"
+		cargo "$@"
+		popd
+	done
+}
+
+# Deploys an expi example via ssh.
+function deploy_example {
+	local host=$1
+	local bin=$2
+
+	pushd expi_examples
+	cargo build --release --bin "$bin"
+	popd
+
+	local target_dir='expi_examples/target/aarch64-unknown-none/release'
+	flatelf "$target_dir/$bin" "$target_dir/$bin.flat"
+	scp "$target_dir/$bin.flat" "$host:/var/tftproot/kernel8.img"
+}
+
+# Shows the usage message.
+function usage {
+	echo "usage: $0 <cmd> <cmd args>" >&2
+	echo "Commands:" >&2
+	echo -e "  rcargo <cargo args>\trun cargo recursively" >&2
+	echo -e "  deploy <host> <bin>\tdeploy an expi example to host" >&2
+}
+
+if [[ $# -eq 0 ]]; then
+	usage
+	exit 2
+fi
+
+# Set working directory to the root of the repo.
+cd "$(dirname "$0")/.."
+
+case $1 in
+	rcargo)
+		shift
+
+		if [[ $# -eq 0 ]]; then
+			echo "usage: $0 rcargo <cargo args>" >&2
+			exit 2
+		fi
+
+		rcargo "$@"
+		;;
+	deploy)
+		shift
+
+		if [[ $# -ne 2 ]]; then
+			echo "usage: $0 deploy <host> <bin>" >&2
+			exit 2
+		fi
+
+		deploy_example "$@"
+		;;
+	*)
+		usage
+		exit 2
+		;;
+esac
