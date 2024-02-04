@@ -204,7 +204,7 @@ pub fn init(dtb_ptr32: u32) -> Result<(), Error> {
     let early_fdt = unsafe { fdt::EarlyFdt::parse(dtb_ptr32 as usize)? };
 
     // Add ARM memory to the free memory RangeSet.
-    let root_off = early_fdt.node("/").unwrap();
+    let root_off = early_fdt.node("/")?;
     let address_cells =
         early_fdt.property(root_off, "#address-cells")?.to_u32()?;
     let size_cells = early_fdt.property(root_off, "#size-cells")?.to_u32()?;
