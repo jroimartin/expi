@@ -29,8 +29,8 @@ function deploy_example {
 function usage {
 	echo "usage: $0 <cmd> <cmd args>" >&2
 	echo "Commands:" >&2
-	echo -e "  rcargo <cargo args>\trun cargo recursively" >&2
-	echo -e "  deploy <host> <bin>\tdeploy an expi example to host" >&2
+	echo -e "  rcargo <cargo args>  run cargo recursively" >&2
+	echo -e "  deploy <host> <bin>  deploy an expi example to host" >&2
 }
 
 if [[ $# -eq 0 ]]; then
