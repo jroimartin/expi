@@ -137,7 +137,7 @@ pub fn data_line_size() -> usize {
 /// # Safety
 ///
 /// This function takes an arbitrary virtual address that might require an
-/// address translation from VA to PA, and that translation might fault.
+/// address translation from VA to PA, and that translation might fail.
 pub unsafe fn dcache_clean_inval_poc(va: usize, size: usize) {
     let linesz = data_line_size();
     let start = va & !(linesz - 1);
