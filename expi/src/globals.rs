@@ -109,11 +109,7 @@ fn panic(info: &PanicInfo) -> ! {
         print!("{}:{}", location.file(), location.line());
     }
 
-    if let Some(message) = info.message() {
-        println!(": {}", message);
-    } else {
-        println!();
-    }
+    println!(": {}", info.message());
 
     loop {
         cpu::wfe()

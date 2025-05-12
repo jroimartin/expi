@@ -1,6 +1,5 @@
 //! Boot all cores.
 
-#![feature(naked_functions)]
 #![no_std]
 #![no_main]
 

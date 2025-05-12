@@ -1,6 +1,5 @@
 //! FDT parsing.
 
-#![feature(naked_functions)]
 #![no_std]
 #![no_main]
 
@@ -13,6 +12,7 @@ use expi::println;
 use expi_macros::entrypoint;
 
 /// FDT example error.
+#[allow(dead_code)]
 #[derive(Debug)]
 enum Error {
     /// Uninit global.

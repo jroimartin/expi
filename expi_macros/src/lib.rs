@@ -69,12 +69,12 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
     );
 
     let tokens = quote! {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         extern "C" fn _expi_enable_identity_mapping() {
             expi::cpu::mmu::enable_identity_mapping();
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         extern "C" fn _expi_globals_init(dtb_ptr32: u32) -> u64 {
             expi::globals::init(dtb_ptr32).expect("init error");
 
@@ -90,13 +90,13 @@ pub fn entrypoint(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         #[link_section = ".entry"]
-        #[no_mangle]
-        #[naked]
+        #[unsafe(no_mangle)]
+        #[unsafe(naked)]
         unsafe extern "C" fn _start() -> ! {
-            core::arch::asm!(#start_code, options(noreturn))
+            core::arch::naked_asm!(#start_code)
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         unsafe extern "C" fn #fname_c() {
             #fname_rust()
         }
@@ -163,12 +163,12 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
     );
 
     let tokens = quote! {
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         extern "C" fn _expi_enable_identity_mapping() {
             expi::cpu::mmu::enable_identity_mapping();
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         extern "C" fn _expi_globals_init(dtb_ptr32: u32) -> u64 {
             expi::globals::init(dtb_ptr32).expect("init error");
 
@@ -183,16 +183,16 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
             end + 1
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         extern "C" fn _expi_dcache_clean_inval() {
             unsafe { expi::cpu::mmu::dcache_clean_inval_poc(0, 0x2000) };
         }
 
         #[link_section = ".entry"]
-        #[no_mangle]
-        #[naked]
+        #[unsafe(no_mangle)]
+        #[unsafe(naked)]
         unsafe extern "C" fn _start() -> ! {
-            core::arch::asm!(
+            core::arch::naked_asm!(
                 r#"
                     // Save dtb_ptr32 into a callee-saved register.
                     mov x19, x0
@@ -232,17 +232,16 @@ pub fn entrypoint_mp(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     sev
 
                     b _expi_start_mp
-                "#,
-                options(noreturn))
+                "#)
         }
 
-        #[no_mangle]
-        #[naked]
+        #[unsafe(no_mangle)]
+        #[unsafe(naked)]
         unsafe extern "C" fn _expi_start_mp() -> ! {
-            core::arch::asm!(#start_mp_code, options(noreturn))
+            core::arch::naked_asm!(#start_mp_code)
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         unsafe extern "C" fn #fname_c() {
             #fname_rust()
         }
@@ -292,13 +291,13 @@ pub fn exception_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
     );
 
     let tokens = quote! {
-        #[no_mangle]
-        #[naked]
+        #[unsafe(no_mangle)]
+        #[unsafe(naked)]
         unsafe extern "C" fn #fname_asm() -> ! {
-            core::arch::asm!(#handler_code, options(noreturn))
+            core::arch::naked_asm!(#handler_code)
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         unsafe extern "C" fn #fname_c() {
             #fname_rust()
         }
@@ -415,13 +414,13 @@ pub fn exception_vector_table(item: TokenStream) -> TokenStream {
 
     let tokens = quote! {
         #[link_section = ".exception_vector_table"]
-        #[no_mangle]
-        #[naked]
+        #[unsafe(no_mangle)]
+        #[unsafe(naked)]
         unsafe extern "C" fn _exception_vector_table() -> ! {
-            core::arch::asm!(#vector_table_code, options(noreturn))
+            core::arch::naked_asm!(#vector_table_code)
         }
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         unsafe extern "C" fn _expi_c_unimplemented_exc() {
             unimplemented!();
         }

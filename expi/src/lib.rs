@@ -40,7 +40,6 @@
 //! [BCM2836 ARM-local Peripherals specification]: https://datasheets.raspberrypi.com/bcm2836/bcm2836-peripherals.pdf
 //! [flatelf]: https://github.com/jroimartin/flatelf/
 
-#![feature(panic_info_message)]
 #![no_std]
 
 extern crate alloc;

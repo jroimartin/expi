@@ -26,6 +26,7 @@ const TMPL_DEV_NGNRNE: u64 = (1 << 54) | (1 << 53) | (1 << 10) | (2 << 2);
 const TMPL_NORMAL_WBWARA: u64 = (1 << 10) | (3 << 8) | (1 << 2);
 
 /// Configure the MMU for identity mapping.
+#[allow(static_mut_refs)]
 pub fn enable_identity_mapping() {
     // Set l1 page table base address.
     let ttbr0_el2 = unsafe { PAGE_TABLE_L1.0.as_ptr() as u64 };

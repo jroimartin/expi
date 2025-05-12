@@ -1,6 +1,5 @@
 //! Simple Synth.
 
-#![feature(naked_functions)]
 #![no_std]
 #![no_main]
 

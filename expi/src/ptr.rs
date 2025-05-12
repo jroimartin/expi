@@ -109,7 +109,7 @@ impl MemReader {
     /// location, therefore this function is unsafe.
     pub unsafe fn read_cstr(&mut self) -> Result<*const str, Error> {
         let s = read_cstr(self.pos)?;
-        self.pos += (*s).len() + 1;
+        self.pos += (&*s).len() + 1;
         Ok(s)
     }
 

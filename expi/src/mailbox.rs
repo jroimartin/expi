@@ -144,6 +144,7 @@ pub fn get_vc_memory() -> Result<(u32, u32), Error> {
 }
 
 /// Issue a new mailbox request with the provided concatenated tags.
+#[allow(static_mut_refs)]
 pub fn process_request(tags: &[u32]) -> Result<(), Error> {
     unsafe {
         // There must be room for the request, the headers values and the end
