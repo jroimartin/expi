@@ -7,8 +7,8 @@ expi simplifies writing kernels for the Raspberry Pi 3 Model B.
 Install [flatelf] and generate a kernel image:
 
 ```
-cd <kernel>
-cargo build --release
+cd expi_examples
+cargo build --release --bin <kernel>
 flatelf target/aarch64-unknown-none/release/<kernel> \
     target/aarch64-unknown-none/release/kernel8.img
 ```
@@ -29,8 +29,8 @@ Note: check the boot debug output for the exact list.
 ## Run in QEMU
 
 ```
-cd <kernel>
-cargo run --release
+cd expi_examples
+cargo run --release --bin <kernel>
 ```
 
 ### DTB
